@@ -1,4 +1,4 @@
-<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="1" Description="Crafting Enhancements: Multi item crafting for simple schematics" >
+<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Crafting Enhancements: Multi item crafting for simple schematics">
     <Script Name="TradeskillTree.lua"/>
     <Form Name="TradeskillTree.xml"/>
     <Script Name="TradeskillSchematics.lua"/>
@@ -7,5 +7,5 @@
     <Form Name="TradeskillTalents.xml"/>
     <Script Name="TradeskillContainer.lua"/>
     <Form Name="TradeskillContainer.xml"/>
-	<ReplaceAddon Name="Tradeskills"/>
+    <ReplaceAddon Name="Tradeskills"/>
 </Addon>
