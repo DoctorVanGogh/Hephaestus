@@ -1,6 +1,7 @@
 -----------------------------------------------------------------------------------------------
 -- Client Lua Script for TradeskillSchematics
 -- Copyright (c) NCsoft. All rights reserved
+-- Additions for multi item crafting Copyright 2014 by DoctorVanGogh on Wildstar Forums
 -----------------------------------------------------------------------------------------------
 
 require "Window"
@@ -325,8 +326,11 @@ function TradeskillSchematics:OnTimerCraftingStationCheck()
 
 	local bIsAutoCraft = tSchematicInfo and tSchematicInfo.bIsAutoCraft
 	local bIsAtCraftingStation = CraftingLib.IsAtCraftingStation()
-	self.wndMain:FindChild("RightBottomCraftBtn"):Show(not bIsAutoCraft)
-	self.wndMain:FindChild("RightBottomSimpleCraftBtn"):Show(bIsAutoCraft and bIsAtCraftingStation)
+	self.wndMain:FindChild("RightBottomCraftBtn"):Show(not bIsAutoCraft)	
+	self.wndMain:FindChild("RightBottomSimpleCraft"):Show(bIsAutoCraft and bIsAtCraftingStation)
+	self.wndMain:FindChild("RightBottomSimpleCountContainer"):Show(bIsAutoCraft and bIsAtCraftingStation)
+	self.wndMain:FindChild("RightBottomSimpleCountSpinner"):Show(bIsAutoCraft and bIsAtCraftingStation)
+	self.wndMain:FindChild("RightBottomSimpleCraftBtn"):Show(bIsAutoCraft and bIsAtCraftingStation)		
 	if not bIsAtCraftingStation and bIsAutoCraft then
 		self.wndMain:FindChild("RightBottomCraftPreview"):SetText(Apollo.GetString("Crafting_NotNearStation"))
 	else
@@ -468,6 +472,29 @@ function TradeskillSchematics:DrawSchematic(tSchematic)
 	wndSchem:FindChild("RightBottomSimpleCraftBtn"):SetData(tSchematic.nSchematicId) -- This is updated on OnTimerCraftingStationCheck based on RightBottomCraftPreview
 	wndSchem:FindChild("RightBottomSimpleCraftBtn"):Enable(bHaveEnoughMats) -- GOTCHA: RightBottomCraftBtn can be enabled with no mats, it just goes to a preview screen
 
+	if tSchematicInfo.bIsAutoCraft then
+		local maxCraftable = math.min(nNumCraftable, tSchematicInfo.nCraftAtOnceMax)
+		local spinner = wndSchem:FindChild("RightBottomSimpleCountSpinner")
+		spinner:SetMinMax(1, maxCraftable)
+		spinner:SetValue(1)
+		
+		local simpleContainer = wndSchem:FindChild("RightBottomSimpleCraft")		
+		simpleContainer:DestroyAllPixies()
+		simpleContainer:AddPixie({
+			strText = " / "..tostring(maxCraftable),
+			strFont = "CRB_InterfaceMedium_B",
+			cr = {a=0, r=0, g=0, b=0},
+			crText = {a=255, r=255, g=255, b=255},
+			loc = {
+				fPoints = {0,0,1,1},
+				nOffsets = {91,14,0,-14},
+			},
+			flagsText = {
+				DT_VCENTER = true
+			}		
+		})					
+	end		
+	
 	wndSchem:FindChild("SchematicName"):SetText(tSchematicInfo.strName)
 	wndSchem:FindChild("SchematicIcon"):SetSprite(tSchematicInfo.itemOutput:GetIcon())
 	wndSchem:FindChild("RightCookingMessage"):Show(not tSchematic.bIsKnown and bIsCooking)
@@ -515,8 +542,9 @@ function TradeskillSchematics:OnRightBottomSimpleCraftBtn(wndHandler, wndControl
 	local tCurrentCraft = CraftingLib.GetCurrentCraft()
 	if tCurrentCraft and tCurrentCraft.nSchematicId ~= 0 then
 		Event_FireGenericEvent("GenericEvent_CraftFromPL", wndHandler:GetData())
-	else
-		CraftingLib.CraftItem(wndHandler:GetData())
+	else	
+		local nCount= wndHandler:GetParent():FindChild("RightBottomSimpleCountSpinner"):GetValue()				
+		CraftingLib.CraftItem(wndHandler:GetData(), nil, nCount)	
 	end
 	Event_FireGenericEvent("AlwaysHideTradeskills")
 end
