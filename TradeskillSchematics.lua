@@ -330,7 +330,7 @@ function TradeskillSchematics:OnTimerCraftingStationCheck()
 	self.wndMain:FindChild("RightBottomSimpleCraft"):Show(bIsAutoCraft and bIsAtCraftingStation)
 	self.wndMain:FindChild("RightBottomSimpleCountContainer"):Show(bIsAutoCraft and bIsAtCraftingStation)
 	self.wndMain:FindChild("RightBottomSimpleCountSpinner"):Show(bIsAutoCraft and bIsAtCraftingStation)
-	self.wndMain:FindChild("RightBottomSimpleCraftBtn"):Show(bIsAutoCraft and bIsAtCraftingStation)		
+	self.wndMain:FindChild("RightBottomSimpleCraftBtn"):Show(bIsAutoCraft and bIsAtCraftingStation)
 	if not bIsAtCraftingStation and bIsAutoCraft then
 		self.wndMain:FindChild("RightBottomCraftPreview"):SetText(Apollo.GetString("Crafting_NotNearStation"))
 	else
@@ -493,7 +493,7 @@ function TradeskillSchematics:DrawSchematic(tSchematic)
 				DT_VCENTER = true
 			}		
 		})					
-	end		
+	end
 	
 	wndSchem:FindChild("SchematicName"):SetText(tSchematicInfo.strName)
 	wndSchem:FindChild("SchematicIcon"):SetSprite(tSchematicInfo.itemOutput:GetIcon())
