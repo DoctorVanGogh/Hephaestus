@@ -473,7 +473,7 @@ function TradeskillSchematics:DrawSchematic(tSchematic)
 	wndSchem:FindChild("RightBottomSimpleCraftBtn"):Enable(bHaveEnoughMats) -- GOTCHA: RightBottomCraftBtn can be enabled with no mats, it just goes to a preview screen
 
 	if tSchematicInfo.bIsAutoCraft then
-		local maxCraftable = math.min(nNumCraftable, tSchematicInfo.nCraftAtOnceMax)
+		local maxCraftable = math.min(nNumCraftable or 1, tSchematicInfo.nCraftAtOnceMax or 1)				
 		local spinner = wndSchem:FindChild("RightBottomSimpleCountSpinner")
 		spinner:SetMinMax(1, maxCraftable)
 		spinner:SetValue(1)
