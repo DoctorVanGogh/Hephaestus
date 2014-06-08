@@ -686,5 +686,180 @@ function TradeskillSchematics:LoadByName(strForm, wndParent, strCustomName)
 	return wndNew
 end
 
+---- New queue stuff - TODO: refactor outside this addon
+local knMaxCutoff = 1000
+
+function TradeskillSchematics:RefreshQueueHeader(queue)
+	if not self.wndQueue or not queue then	
+		return
+	end	
+	
+	local isRunning = queue:IsRunning()
+	local btnStop = self.wndQueue:FindChild("StopButton")
+	local btnStart = self.wndQueue:FindChild("StartButton")
+	local btnClear = self.wndQueue:FindChild("ClearButton")
+		
+	if isRunning then
+		btnStop:Enable(true)
+		
+		btnStop:Show(true)
+		btnStart:Enable(false)
+		btnStart:Show(false)
+		btnClear:Enable(false)	
+	else
+		btnStop:Enable(false)
+		btnStop:Show(false)
+		btnStart:Enable(true)		-- TODO: check inventory space - disable if insufficient!!!!!
+		btnStart:Show(true)
+		btnClear:Enable(true)		
+	end
+	
+	self:UpdateCastBar()	
+end
+
+function TradeskillSchematics:RecreateQueue(queue)
+	if not self.wndQueue or not queue then	
+		return
+	end	
+	
+	self:RefreshQueueHeader(queue)
+	
+	-- recreate list
+	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
+	queueContainer:DestroyChildren()
+	for idx, item in ipairs(queue:GetItems()) do
+		local wndItem = Apollo.LoadForm(self.xmlDoc, "QueueItem", queueContainer , self)
+		self:RefreshQueueItem(wndItem , item, queue)							
+	end	
+	queueContainer:ArrangeChildrenVert()	
+		
+end
+
+function TradeskillSchematics:RefreshQueue(queue)
+	if not self.wndQueue or not queue then	
+		return
+	end	
+	
+	self:RefreshQueueHeader(queue)
+	
+	-- recreate list
+	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
+	for idx, wndItem in ipairs(queueContainer:GetChildren()) do
+		local item = wndItem:GetData()
+		self:RefreshQueueItem(wndItem , item, queue)							
+	end	
+	queueContainer:ArrangeChildrenVert()			
+end
+
+function TradeskillSchematics:RefreshQueueItem(wndItem, item, queue)
+	local tSchematicInfo = item:GetSchematicInfo()
+	local nAmount = item:GetAmount()		
+	local bCurrentlyRunning = queue:GetRunningItem() == item
+	local nMaxCraftable = item:GetMaxCraftable(queue, idx)
+	local sCount
+	if nMaxCraftable < knMaxCutoff then
+		sCount = string.format("%3.f", nMaxCraftable)
+	else
+		sCount = "*"
+	end
+	
+	local spinnerAmount = wndItem:FindChild("CountSpinner")
+	local btnRemove = wndItem:FindChild("RemoveButton")
+	local btnUp = wndItem:FindChild("MoveUpButton")
+	local btnDown = wndItem:FindChild("MoveDownButton")
+	local wndCount = wndItem:FindChild("Count")
+
+	
+	wndItem:FindChild("GlowActive"):Show(bCurrentlyRunning)
+	wndCount:SetText(sCount)
+
+	wndItem:FindChild("Icon"):SetSprite(tSchematicInfo.itemOutput:GetIcon())
+	wndItem:FindChild("Name"):SetText(tSchematicInfo.strName)
+	
+	spinnerAmount:Enable(not bCurrentlyRunning)
+	spinnerAmount:SetMinMax(1, math.min(nMaxCraftable, 999))
+	spinnerAmount:SetValue(nAmount)
+					
+	btnUp:Enable(false)			-- NYI
+	btnDown:Enable(false)		-- NYI
+
+	btnRemove:Enable(not bCurrentlyRunning)
+	
+	wndItem:SetData(item)
+end
+
+function TradeskillSchematics:OnQueueItemCountChanged(wndHandler, wndControl, fNewValue, fOldValue )
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	wndControl:GetParent():GetParent():GetData():SetAmount(fNewValue)
+end
+
+function TradeskillSchematics:OnRemoveQueueItem(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return
+	end
+		
+	if not self.wndQueue then	
+		return
+	end
+	
+	local queue = self.wndQueue:GetData()
+	
+	local wndItem = wndControl:GetParent()	
+	local item = wndItem:GetData()
+		
+	-- update data
+	queue:RemoveItem(item)
+		
+	-- update ui
+	wndItem:Destroy()	
+	self.wndQueue:FindChild("QueueContainer"):ArrangeChildrenVert()	
+end
+
+function TradeskillSchematics:OnQueueClear(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return
+	end
+
+	if not self.wndQueue then	
+		return
+	end
+	
+	local queue = self.wndQueue:GetData()	
+	queue:Clear()
+	
+	self:RecreateQueue(queue)
+end
+
+function TradeskillSchematics:OnQueueStart(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	if not self.wndQueue then	
+		return
+	end
+	
+	local queue = self.wndQueue:GetData()	
+	queue:Start()
+	self:RefreshQueue()
+end
+
+function TradeskillSchematics:OnQueueStop(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	if not self.wndQueue then	
+		return
+	end
+	
+	local queue = self.wndQueue:GetData()	
+	queue:Stop()
+	self:RefreshQueue()	
+end
+
 local TradeskillSchematicsInst = TradeskillSchematics:new()
 TradeskillSchematicsInst:Init()
