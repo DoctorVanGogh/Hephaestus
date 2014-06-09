@@ -88,9 +88,14 @@ function TradeskillSchematics:OnDocumentReady()
 	self.wndQueue:Show(false, true)
 		
 	local tCraftQueue = CraftQueue.new()
-	xxxyyyzzz = self.wndQueue
+	tCraftQueue:GetChangedHandlers():Add(self, "RefreshQueueHeader")
+	tCraftQueue:GetItemChangedHandlers():Add(self, "RefreshQueueItem")
+	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")
 	
 	self.wndQueue:SetData(tCraftQueue)
+	
+	xxcc = self.wndQueue
+	
 	Apollo.RegisterSlashCommand("ac", "OnAutoCraft", self)
 end
 
@@ -131,6 +136,11 @@ function TradeskillSchematics:Initialize(wndParent, nSchematicId, strSearchQuery
 		wndMeasure = Apollo.LoadForm(self.xmlDoc, "BottomItem", nil, self)
 		self.knBottomLevelHeight = wndMeasure:GetHeight()
 		wndMeasure:Destroy()
+				
+		local wndDropdown = self.wndMain:FindChild("AddQueueDropdown")
+		self.wndDropdownRepeats = wndDropdown:GetChildren()[1]
+		
+		wndDropdown:AttachWindow(self.wndDropdownRepeats)		
 	end
 
 	self:FullRedraw(nSchematicId)
@@ -542,6 +552,22 @@ function TradeskillSchematics:DrawSchematic(tSchematic)
 
 	wndSchem:FindChild("MaterialsScroll"):ArrangeChildrenTiles(0)
 	wndSchem:FindChild("SubrecipesListScroll"):ArrangeChildrenTiles(0)
+	
+		
+	-- hephaestus custom code
+	if not self.wndDropdownRepeats then
+		return
+	end
+	
+	local repeatParent = self.wndDropdownRepeats:FindChild("RepeatDropdownBG_Art")
+	local repeatContainer = repeatParent:FindChild("RepeatVariantsHolder")
+	
+	repeatContainer:DestroyChildren()
+	local wndRepeatItem = Apollo.LoadForm(self.xmlDoc, "RepeatItem", repeatContainer, self)
+	self:UpdateRepeatItem(tSchematicInfo, wndRepeatItem)
+	-- TODO: add variants
+	repeatContainer:ArrangeChildrenVert()
+	repeatParent:ArrangeChildrenVert()	
 end
 
 function TradeskillSchematics:OnLockedLinkBtn(wndHandler, wndControl) -- LockedLinkBtn, data is achSource
@@ -710,7 +736,7 @@ function mtSignal:__add(tfnCallback)
 	if type(tfnCallback) == "function" then
 		table.insert(self, tfnCallback)
 	elseif type(tfnCallback) == "table" then
-		if not tfnCallback.__call then
+		if not getmetatable(tfnCallback).__call then
 			error("Signal.Add requires a callable argument")
 		end	
 	end
@@ -762,6 +788,33 @@ function Signal:new(t)
 	return setmetatable(t or {}, mtSignal)
 end
 
+local function GuardCanCraft()
+	local player = GameLib.GetPlayerUnit()
+	if player == nil then
+		err("Cannot get player unit - cannot start")
+		return false
+	end
+	
+	if not CraftingLib.IsAtCraftingStation() then
+		err("Not at crafting station")
+		return false
+	end
+	
+	if player:IsMounted() then
+		info("Player mounted - can't start")
+		-- TODO auto dismount?
+		return false
+	end
+	
+	if player:IsCasting() then
+		info("Player is casting - cannot start")
+		return false
+	end
+	
+	return true
+end
+
+
 local CraftQueueItem = {}
 
 local mtCraftQueueItem = {}
@@ -780,6 +833,10 @@ function CraftQueueItem.new(tSchematicInfo, nAmount, tQueue, ...)
 	)	
 end
 
+function mtCraftQueueItem:GetQueue()
+	return self.tQueue
+end
+
 function mtCraftQueueItem:GetSchematicInfo()
 	return self.tSchematicInfo
 end
@@ -788,12 +845,88 @@ function mtCraftQueueItem:GetAmount()
 	return self.nAmount
 end
 
+function mtCraftQueueItem:CraftComplete()
+	self.nAmount = self.nAmount - self.nCurrentCraftAmount
+	self.nCurrentCraftAmount = nil	
+	
+	self:GetQueue():GetItemChangedHandlers()(self)
+end
+
+local function CalcMaxCraftableForMaterials(tSchematicInfo)
+	-- TODO: make this methods *start* at backbackcount, then add/subtract preceding items materials & results 
+	-- 		 keep in mind, there are items that have same item as input and output - also increment by partial crafts
+
+	local nNumCraftable = 9000
+	
+	for key, tMaterial in pairs(tSchematicInfo.tMaterials) do
+		if tMaterial.nAmount > 0 then			
+			local nBackpackCount = tMaterial.itemMaterial:GetBackpackCount()
+
+			nNumCraftable = math.min(nNumCraftable, math.floor(nBackpackCount / tMaterial.nAmount))
+		end
+	end
+
+	return nNumCraftable
+end
+
 function mtCraftQueueItem:GetMaxCraftable()
-	-- TODO: implement
+
+	return CalcMaxCraftableForMaterials(self:GetSchematicInfo())
+end
+
+function mtCraftQueueItem:GetCurrentCraftAmount()
+	return self.nCurrentCraftAmount
+end
+
+function mtCraftQueueItem:SetCurrentCraftAmount(nCount)
+	self.nCurrentCraftAmount = nCount
 end
 
 function mtCraftQueueItem:TryCraft()
-	-- TODO: implement
+	if self:GetMaxCraftable() == 0 then
+		warn("Not enough materials - stopping")
+		self:GetQueue():Stop()
+		return
+	end
+	
+	if not GuardCanCraft() then
+		self:GetQueue():Stop()
+		return
+	end	
+	
+	
+	local tSchematicInfo = self:GetSchematicInfo()
+	
+	if tSchematicInfo.nSchematicId ~= tSchematicInfo.nParentSchematicId then
+		warn("Cannot create variant items (yet) - stopping")
+		self:GetQueue():Stop()
+		return
+	end
+	
+	--[[ 
+		available keys:
+		- nSchematicId
+		- strName
+		- itemOutput
+		- bIsAutoCraft
+		- nCraftAtOnceMax 	
+		- nParentSchematicId 
+	]]
+	local bIsAutoCraft = tSchematicInfo.bIsAutoCraft or false
+	local nCraftAtOnceMax = tSchematicInfo.nCraftAtOnceMax or 1
+	
+	local nCount = math.min(self:GetAmount(), nCraftAtOnceMax)
+	self:SetCurrentCraftAmount(nCount)	
+	
+	if bIsAutoCraft then
+		CraftingLib.CraftItem(tSchematicInfo.nSchematicId, nil, nCount)
+	else		
+		CraftingLib.CraftItem(tSchematicInfo.nSchematicId, nil)	
+		-- TODO: make some moves (later)
+		CraftingLib.CompleteCraft()
+	end			
+	
+	self:GetQueue():GetItemChangedHandlers()(self)	
 end
 
 
@@ -884,14 +1017,27 @@ function CraftQueue.new(t)
 		t or {
 			items = {},
 			handlers = {
-				start = Signal:new(),
-				stop = Signal:new(),
-				itemCraft = Signal:new()
+				changed = Signal.new(),
+				itemChanged = Signal.new(),
+				itemRemoved = Signal.new()
 			}	
 		},
 		{ __index = mtCraftQueue }
 	)
 end
+
+function mtCraftQueue:GetChangedHandlers()
+	return self.handlers.changed
+end
+
+function mtCraftQueue:GetItemChangedHandlers()
+	return self.handlers.itemChanged
+end
+
+function mtCraftQueue:GetItemRemovedHandlers()
+	return self.handlers.itemRemoved
+end
+
 
 function mtCraftQueue:Push(tSchematicInfo, nAmount,...)
 	mtQueue.Push(
@@ -921,39 +1067,45 @@ function mtCraftQueue:Start()
 		return
 	end
 	
-	local player = GameLib.GetPlayerUnit()
-	if player == nil then
-		err("Cannot get player unit - cannot start")
-		return
-	end
-	
-	if not CraftingLib.IsAtCraftingStation() then
-		err("Not at crafting station")
-		return
-	end
-	
-	if player:IsMounted() then
-		info("Player mounted - can't start")
-		-- TODO auto dismount?
-		return
-	end
-	
-	if player:IsCasting() then
-		info("Player is casting - cannot start")
+	if not GuardCanCraft() then
 		return
 	end
 	
 	-- make sure enough materials are still present
 	self.state = ktQueueStates.Running
 	
-	self.handlers.start()	
+	self.handlers.changed()	
+	Apollo.RegisterEventHandler("CombatLogCrafting", "OnCombatLogCrafting", self)
+	Apollo.RegisterEventHandler("CraftingInterrupted", "OnCraftingInterrupted", self)	
 	self:Peek():TryCraft()		
 end
+
+function mtCraftQueue:OnCombatLogCrafting(tEventArgs)
+	info("OnCombatLogCrafting: ".. inspect(tEventArgs))	
+	self:Peek():CraftComplete()
+	
+	if self:Peek():GetAmount() == 0 then
+		local item = self:Pop()
+		
+		self.handlers.itemRemoved(item)
+		
+		if self.GetCount() == 0 then
+			self:Stop()
+			return
+		end		
+
+	end
+	
+	self:Peek():TryCraft()
+end
+
+function mtCraftQueue:CraftingInterrupted()
+	self:Stop()
+end
+
 --[[
 	Apollo.RegisterEventHandler("VarChange_FrameCount", "OnFrameChange", self)
-	Apollo.RegisterEventHandler("CombatLogCrafting", "OnCombatLogCrafting", self)
-	Apollo.RegisterEventHandler("CraftingInterrupted", "OnCraftingInterrupted", self)
-	]]
+]]
 		
 
 
@@ -964,7 +1116,7 @@ function mtCraftQueue:Stop()
 	end
 	
 	self.state = ktQueueStates.Paused
-	self.handlers.stop()	
+	self.handlers.changed()	
 end
 
 function TradeskillSchematics:UpdateCastBar()
@@ -1034,12 +1186,30 @@ function TradeskillSchematics:RefreshQueue()
 	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
 	for idx, wndItem in ipairs(queueContainer:GetChildren()) do
 		local item = wndItem:GetData()
-		self:RefreshQueueItem(wndItem , item, queue)							
+		self:RefreshQueueItem(item, wndItem, queue)							
 	end	
 	queueContainer:ArrangeChildrenVert()			
 end
 
-function TradeskillSchematics:RefreshQueueItem(wndItem, item, queue)
+function TradeskillSchematics:RefreshQueueItem(item, wndItem, queue)
+	if not wndItem then
+		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
+			if item == wnd:GetData() then
+				wndItem = wnd
+				break
+			end		
+		end
+	end
+	
+	if not wndItem then
+		warn("wndItem is nil")
+		return 
+	end
+	
+	if not queue then
+		queue = item:GetQueue()
+	end
+
 	local tSchematicInfo = item:GetSchematicInfo()
 	local nAmount = item:GetAmount()		
 	local bCurrentlyRunning = queue:IsRunning() and queue:Peek() == item
@@ -1076,6 +1246,25 @@ function TradeskillSchematics:RefreshQueueItem(wndItem, item, queue)
 	wndItem:SetData(item)
 end
 
+function TradeskillSchematics:RemovedQueueItem(item, wndItem)
+	if not wndItem then
+		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
+			if item == wnd:GetData() then
+				wndItem = wnd
+				break
+			end		
+		end
+	end
+	
+	if not wndItem then
+		warn("wndItem is nil")
+		return 
+	end
+
+	wndItem:Destroy()	
+	self.wndQueue:FindChild("QueueContainer"):ArrangeChildrenVert()	
+end
+
 function TradeskillSchematics:OnQueueItemCountChanged(wndHandler, wndControl, fNewValue, fOldValue )
 	if wndHandler ~= wndControl then
 		return
@@ -1102,8 +1291,7 @@ function TradeskillSchematics:OnRemoveQueueItem(wndHandler, wndControl)
 	queue:Remove(item)
 		
 	-- update ui
-	wndItem:Destroy()	
-	self.wndQueue:FindChild("QueueContainer"):ArrangeChildrenVert()	
+	RemovedQueueItem(item, wndItem)
 end
 
 function TradeskillSchematics:OnQueueClear(wndHandler, wndControl)
@@ -1163,8 +1351,67 @@ function TradeskillSchematics:ToggleQueueWindow()
 end
 
 
+
 function TradeskillSchematics:OnAutoCraft()
 	self:ToggleQueueWindow()
+end
+
+function TradeskillSchematics:UpdateRepeatItem(tSchematicInfo, wndTarget)
+	wndTarget:SetData(tSchematicInfo)
+	wndTarget:FindChild("Name"):SetText(tSchematicInfo.strName)
+	wndTarget:FindChild("Icon"):SetSprite(tSchematicInfo.itemOutput:GetIcon())
+	
+	local nCostPerItem = 0	-- TODO: calc by moves...
+	local nMaxCraftable = CalcMaxCraftableForMaterials(tSchematicInfo)	-- TODO: factor in money, once things actually cost something
+	
+	local strMaxCount
+	if nMaxCraftable < knMaxCutoff then
+		strMaxCount = string.format("%3.f", nMaxCraftable)
+	else
+		strMaxCount = "*"
+		nMaxCraftable = knMaxCutoff
+	end	
+	
+	wndTarget:FindChild("CostsPerRepeat"):SetAmount(nCostPerItem)
+	local wndCountSpinner = wndTarget:FindChild("CountSpinner")
+	wndCountSpinner:SetMinMax(1, nMaxCraftable)
+	wndCountSpinner:SetValue(nMaxCraftable)
+	wndTarget:FindChild("MaxCount"):SetText(strMaxCount)
+	
+	local wndChance = wndTarget:FindChild("SuccessChance")
+	wndChance:SetText("100%")		-- TODO: set this to real chance, color appropriately
+	
+	wndTarget:FindChild("CostsTotal"):SetAmount(nCostPerItem * nMaxCraftable)	
+end
+
+function TradeskillSchematics:OnAddRepeatItem( wndHandler, wndControl, eMouseButton )
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	if not self.wndQueue then
+		return
+	end
+	
+	self.wndQueue:Show(true)
+	local queue = self.wndQueue:GetData()
+	
+	local wndItem = wndControl:GetParent()
+	
+	local tSchematicInfo = wndItem:GetData()
+	local nCount = wndItem:FindChild("CountSpinner"):GetValue()
+	
+	queue:Push(tSchematicInfo, nCount)
+end
+
+function TradeskillSchematics:OnRepeatItemCountChanged(wndHandler, wndControl, fNewValue, fOldValue )
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	local wndItem = wndControl:GetParent():GetParent()
+	local costPerItem = wndItem:FindChild("CostsPerRepeat"):GetAmount()
+	wndItem:FindChild("CostsTotal"):SetAmount(math.floor(costPerItem * fNewValue))
 end
 
 local TradeskillSchematicsInst = TradeskillSchematics:new()
