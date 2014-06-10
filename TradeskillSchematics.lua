@@ -88,9 +88,9 @@ function TradeskillSchematics:OnDocumentReady()
 	self.wndQueue:Show(false, true)
 		
 	local tCraftQueue = CraftQueue.new()
-	tCraftQueue:GetChangedHandlers():Add(self, "RefreshQueueHeader")
+	tCraftQueue:GetChangedHandlers():Add(self, "RecreateQueue")
 	tCraftQueue:GetItemChangedHandlers():Add(self, "RefreshQueueItem")
-	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")
+	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")	
 	
 	self.wndQueue:SetData(tCraftQueue)
 	
@@ -729,6 +729,19 @@ end
 
 ---- New queue stuff - TODO: refactor outside this addon
 local knMaxCutoff = 1000
+local knSupplySatchelStackSize = 250
+
+local function info(strText)
+	Print("INFO: "..(strText or ""))
+end
+
+local function err(strText)
+	Print("ERROR: "..(strText or ""))
+end
+
+local function warn(strText)
+	Print("WARN: "..(strText or ""))
+end
 
 local mtSignal = {}
 
@@ -738,7 +751,9 @@ function mtSignal:__add(tfnCallback)
 	elseif type(tfnCallback) == "table" then
 		if not getmetatable(tfnCallback).__call then
 			error("Signal.Add requires a callable argument")
+			return
 		end	
+		table.insert(self, tfnCallback)
 	end
 	
 	return self
@@ -767,11 +782,11 @@ function mtSignal:Add(tOwner, strCallback)
 		local t = luaCaller.tOwner
 		local strClb = luaCaller.strCallback
 		if t and strClb then
-			t[strClb](unpack(arg))
+			t[strClb](t, unpack(arg))
 		end
 	end
 	
-	local tCallback = setmetatable({}, {__mode = "v", __call = fnCall})
+	local tCallback = setmetatable({}, {__mode="v", __call = fnCall})
 	tCallback.tOwner = tOwner
 	tCallback.strCallback = strCallback	
 		
@@ -845,6 +860,10 @@ function mtCraftQueueItem:GetAmount()
 	return self.nAmount
 end
 
+function mtCraftQueueItem:SetAmount(nAmount)
+	self.nAmount = nAmount
+end
+
 function mtCraftQueueItem:CraftComplete()
 	self.nAmount = self.nAmount - self.nCurrentCraftAmount
 	self.nCurrentCraftAmount = nil	
@@ -897,7 +916,7 @@ function mtCraftQueueItem:TryCraft()
 	
 	local tSchematicInfo = self:GetSchematicInfo()
 	
-	if tSchematicInfo.nSchematicId ~= tSchematicInfo.nParentSchematicId then
+	if tSchematicInfo.nParentSchematicId and tSchematicInfo.nParentSchematicId ~= 0 and tSchematicInfo.nSchematicId ~= tSchematicInfo.nParentSchematicId then
 		warn("Cannot create variant items (yet) - stopping")
 		self:GetQueue():Stop()
 		return
@@ -914,8 +933,57 @@ function mtCraftQueueItem:TryCraft()
 	]]
 	local bIsAutoCraft = tSchematicInfo.bIsAutoCraft or false
 	local nCraftAtOnceMax = tSchematicInfo.nCraftAtOnceMax or 1
+	local itemOutput = tSchematicInfo.itemOutput
+	local nRoomForOutputItems = 0
+	local unitPlayer = GameLib.GetPlayerUnit()
 	
-	local nCount = math.min(self:GetAmount(), nCraftAtOnceMax)
+	-- make sure we have enough space in inventory
+	
+	-- check satchel first
+	if itemOutput.CanMoveToSupplySatchel() then
+		local bFound = false
+		for strCategory, arItems in pairs(unitPlayer:GetSupplySatchelItems(0)) do
+			for idx, tCurrItem in ipairs(arItems) do
+				if tCurrItem.itemMaterial == itemOutput then
+					bFound = true
+					nRoomForOutputItems = knSupplySatchelStackSize - tCurrItem.nCount					
+					break
+				end
+			end
+		end
+		
+		if not bFound then
+			nRoomForOutputItems = knSupplySatchelStackSize
+		end
+	end
+
+	-- calc free inventory slots
+	local nMaxStackSize = itemOutput:GetMaxStackCount() or 1
+	
+	local nOccupiedInventory = #unitPlayer:GetInventoryItems() or 0
+	local nTotalInventory = GameLib.GetTotalInventorySlots() or 0
+	local nAvailableInventory = nTotalInventory - nOccupiedInventory
+	nRoomForOutputItems = nRoomForOutputItems + nMaxStackSize * nAvailableInventory
+	
+	-- calc partial stacks in inventory
+	for idx, tCurrItem in ipairs(unitPlayer:GetInventoryItems()) do	
+		if tCurrItem.itemInBag == itemOutput then
+			local nStackSize = tCurrItem.itemInBag:GetStackCount() or 0
+			nRoomForOutputItems = nRoomForOutputItems + nMaxStackSize - nStackSize
+		end	
+	end
+	
+	-- calculate defensively, in case there are ever crit crafts with more output
+	local nCraftCount = math.max(tSchematicInfo.nCreateCount or 1, tSchematicInfo.nCritCount or 1)
+	
+	local nMaxCraftCounts = math.floor(nRoomForOutputItems / nCraftCount)
+	if nMaxCraftCounts < 1 then
+		err("Not enough room for output items - stopping")
+		self:GetQueue():Stop()
+		return		
+	end
+	
+	local nCount = math.min(nMaxCraftCounts, math.min(self:GetAmount(), nCraftAtOnceMax))
 	self:SetCurrentCraftAmount(nCount)	
 	
 	if bIsAutoCraft then
@@ -937,18 +1005,6 @@ local ktQueueStates = {
 	Running = 2
 }
 
-
-local function info(strText)
-	Print("INFO: "..(strText or ""))
-end
-
-local function err(strText)
-	Print("ERROR: "..(strText or ""))
-end
-
-local function warn(strText)
-	Print("WARN: "..(strText or ""))
-end
 
 local mtQueue = {}
 
@@ -985,7 +1041,7 @@ function mtQueue:Peek()
 	if #self.items == 0 then
 		return nil
 	else
-		return self[1]
+		return self.items[1]
 	end		
 end
 
@@ -1049,6 +1105,7 @@ function mtCraftQueue:Push(tSchematicInfo, nAmount,...)
 			unpack(arg)
 		)
 	)
+	self.handlers.changed()
 end
 
 
@@ -1077,11 +1134,11 @@ function mtCraftQueue:Start()
 	self.handlers.changed()	
 	Apollo.RegisterEventHandler("CombatLogCrafting", "OnCombatLogCrafting", self)
 	Apollo.RegisterEventHandler("CraftingInterrupted", "OnCraftingInterrupted", self)	
+	Apollo.RegisterEventHandler("OnCraftingSchematicComplete", "OnCraftingSchematicComplete", self)
 	self:Peek():TryCraft()		
 end
 
-function mtCraftQueue:OnCombatLogCrafting(tEventArgs)
-	info("OnCombatLogCrafting: ".. inspect(tEventArgs))	
+function mtCraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp, arMaterialReturnedIds, idSchematicCrafted, idItemCrafted)
 	self:Peek():CraftComplete()
 	
 	if self:Peek():GetAmount() == 0 then
@@ -1110,10 +1167,15 @@ end
 
 
 function mtCraftQueue:Stop()
-	if self.state == ktQueueStates.Paused and not self.IsCraftRunning then
+	if self.state == ktQueueStates.Paused and not self:IsCraftRunning() then
 		warn("Already stopped")
 		return
 	end
+	
+	-- TODO: the removal may need to be delayed...
+	--Apollo.RemoveEventHandler("CombatLogCrafting", self)
+	--Apollo.RemoveEventHandler("CraftingInterrupted",  self)	
+	--Apollo.RemoveEventHandler("OnCraftingSchematicComplete", self)	
 	
 	self.state = ktQueueStates.Paused
 	self.handlers.changed()	
@@ -1154,7 +1216,7 @@ function TradeskillSchematics:RefreshQueueHeader()
 	self:UpdateCastBar()	
 end
 
-function TradeskillSchematics:RecreateQueue()
+function TradeskillSchematics:RecreateQueue()	
 	if not self.wndQueue then	
 		return
 	end	
@@ -1166,9 +1228,12 @@ function TradeskillSchematics:RecreateQueue()
 	-- recreate list
 	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
 	queueContainer:DestroyChildren()
-	for idx, item in ipairs(queue:GetItems()) do
+
+	local items = queue:GetItems()
+	
+	for idx, item in ipairs(items) do
 		local wndItem = Apollo.LoadForm(self.xmlDoc, "QueueItem", queueContainer , self)
-		self:RefreshQueueItem(wndItem , item, queue)							
+		self:RefreshQueueItem(item, wndItem, queue)							
 	end	
 	queueContainer:ArrangeChildrenVert()	
 		
@@ -1209,7 +1274,7 @@ function TradeskillSchematics:RefreshQueueItem(item, wndItem, queue)
 	if not queue then
 		queue = item:GetQueue()
 	end
-
+	
 	local tSchematicInfo = item:GetSchematicInfo()
 	local nAmount = item:GetAmount()		
 	local bCurrentlyRunning = queue:IsRunning() and queue:Peek() == item
@@ -1291,7 +1356,8 @@ function TradeskillSchematics:OnRemoveQueueItem(wndHandler, wndControl)
 	queue:Remove(item)
 		
 	-- update ui
-	RemovedQueueItem(item, wndItem)
+	self:RemovedQueueItem(item, wndItem)
+	self:RefreshQueueHeader()
 end
 
 function TradeskillSchematics:OnQueueClear(wndHandler, wndControl)
@@ -1414,5 +1480,13 @@ function TradeskillSchematics:OnRepeatItemCountChanged(wndHandler, wndControl, f
 	wndItem:FindChild("CostsTotal"):SetAmount(math.floor(costPerItem * fNewValue))
 end
 
+function TradeskillSchematics:OnAutoQueueClose(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return		
+	end
+	
+	self.wndQueue:Show(false)
+end
+  
 local TradeskillSchematicsInst = TradeskillSchematics:new()
 TradeskillSchematicsInst:Init()
