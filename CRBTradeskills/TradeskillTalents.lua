@@ -15,7 +15,7 @@ function TradeskillTalents:new(o)
 end
 
 function TradeskillTalents:Init()
-    Apollo.RegisterAddon(self, nil, false, {"DoctorVanGogh:Lib:AddonRegistry"})
+    Apollo.RegisterAddon(self, nil, nil, {"DoctorVanGogh:Lib:AddonRegistry"})
 end
 
 

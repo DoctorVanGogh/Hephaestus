@@ -17,7 +17,7 @@ function TradeskillContainer:new(o)
 end
 
 function TradeskillContainer:Init()
-    Apollo.RegisterAddon(self, nil, false, {"DoctorVanGogh:Lib:AddonRegistry"})
+    Apollo.RegisterAddon(self, nil, nil, {"DoctorVanGogh:Lib:AddonRegistry"})
 end
 
 function TradeskillContainer:OnLoad()

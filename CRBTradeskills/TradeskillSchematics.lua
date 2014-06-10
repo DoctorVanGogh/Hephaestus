@@ -44,7 +44,7 @@ function TradeskillSchematics:new(o)
 end
 
 function TradeskillSchematics:Init()
-    Apollo.RegisterAddon(self, nil, false, {"DoctorVanGogh:Lib:AddonRegistry"})
+    Apollo.RegisterAddon(self, nil, nil, {"DoctorVanGogh:Lib:AddonRegistry"})
 end
 
 function TradeskillSchematics:OnSave(eType)

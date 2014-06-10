@@ -11,8 +11,8 @@ local Hephaestus = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
 																	{
 																		"Drafto:Lib:inspect-1.2",
 																		"Gemini:Logging-1.2",
-																		"Tradeskills"
-																		"DoctorVanGogh:Lib:AddonRegistry",
+																		"CRBTradeskills",
+																		"DoctorVanGogh:Lib:AddonRegistry"
 																	},
 																	"Gemini:Hook-1.0"
 																	)
