@@ -1,5 +1,6 @@
-<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Crafting Enhancements: Multi item crafting for simple schematics">
-    <Script Name="TradeskillTree.lua"/>
+<Addon Name="Tradeskills" APIVersion="8" Author="Carbine" Version="1" Description="Replacement for Carbine&apos;s Tradeskills with minimal changes for modification hooks">
+    <Script Name="lib/AddonRegistry/AddonRegistry.lua"/>     
+	<Script Name="TradeskillTree.lua"/>
     <Form Name="TradeskillTree.xml"/>
     <Script Name="TradeskillSchematics.lua"/>
     <Form Name="TradeskillSchematics.xml"/>

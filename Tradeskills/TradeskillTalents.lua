@@ -15,11 +15,14 @@ function TradeskillTalents:new(o)
 end
 
 function TradeskillTalents:Init()
-    Apollo.RegisterAddon(self)
+    Apollo.RegisterAddon(self, nil, false, {"DoctorVanGogh:Lib:AddonRegistry"})
 end
 
 
 function TradeskillTalents:OnLoad()
+	local AddonRegistry = Apollo.GetPackage("DoctorVanGogh:Lib:AddonRegistry").tPackage
+	AddonRegistry:RegisterAddon(self, "Tradeskills", "TradeskillTalents")
+
 	self.xmlDoc = XmlDoc.CreateFromFile("TradeskillTalents.xml")
 	self.xmlDoc:RegisterCallback("OnDocumentReady", self)
 end

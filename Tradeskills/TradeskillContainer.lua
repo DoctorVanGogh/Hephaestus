@@ -17,10 +17,13 @@ function TradeskillContainer:new(o)
 end
 
 function TradeskillContainer:Init()
-    Apollo.RegisterAddon(self)
+    Apollo.RegisterAddon(self, nil, false, {"DoctorVanGogh:Lib:AddonRegistry"})
 end
 
 function TradeskillContainer:OnLoad()
+	local AddonRegistry = Apollo.GetPackage("DoctorVanGogh:Lib:AddonRegistry").tPackage
+	AddonRegistry:RegisterAddon(self, "Tradeskills", "TradeskillContainer")
+
 	self.xmlDoc = XmlDoc.CreateFromFile("TradeskillContainer.xml")
 	self.xmlDoc:RegisterCallback("OnDocumentReady", self)
 end

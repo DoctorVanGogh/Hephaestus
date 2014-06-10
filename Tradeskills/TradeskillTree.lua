@@ -22,10 +22,13 @@ function TradeskillTree:new(o)
 end
 
 function TradeskillTree:Init()
-    Apollo.RegisterAddon(self, false, "", {"ToolTips"})
+    Apollo.RegisterAddon(self, false, "", {"ToolTips", "DoctorVanGogh:Lib:AddonRegistry"})
 end
 
 function TradeskillTree:OnLoad()
+	local AddonRegistry = Apollo.GetPackage("DoctorVanGogh:Lib:AddonRegistry").tPackage
+	AddonRegistry:RegisterAddon(self, "Tradeskills", "TradeskillTree")
+
 	self.xmlDoc = XmlDoc.CreateFromFile("TradeskillTree.xml")
 	self.xmlDoc:RegisterCallback("OnDocumentReady", self)
 end
