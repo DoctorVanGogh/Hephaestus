@@ -152,18 +152,18 @@ function mtCraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp,
 		return
 	end
 	
+	local top = self:Peek()
+	
 	if not bPass then	
-		self:Peek():SetCurrentCraftAmount(nil)
+		top:SetCurrentCraftAmount(nil)
 	else
-		self:Peek():CraftComplete()
+		top:CraftComplete()
 	end
 	
 	glog:debug(" - top amount remaining: %s", tostring(self:Peek():GetAmount()))
 	
-	if self:Peek():GetAmount() == 0 then
-		local item = self:Pop()
-		
-		self.handlers.itemRemoved(item)
+	if top:GetAmount() == 0 then		
+		self.handlers.itemRemoved(top)
 		
 		if self.GetCount() == 0 then
 			self:Stop()

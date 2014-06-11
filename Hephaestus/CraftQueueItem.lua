@@ -78,8 +78,9 @@ function mtCraftQueueItem:CraftComplete()
 	glog:debug("CraftQueueItem:CraftComplete()")
 
 	self:SetAmount(self:GetAmount() - self:GetCurrentCraftAmount())
-	self.SetCurrentCraftAmount(nil)
-	
+	--self.SetCurrentCraftAmount(nil)
+
+	glog:debug("CraftCompleted")
 	self:GetQueue():GetItemChangedHandlers()(self)
 end
 
@@ -93,7 +94,7 @@ end
 
 function mtCraftQueueItem:SetCurrentCraftAmount(nCount)
 	glog:debug("CraftQueueItem:SetCurrentCraftAmount(%s)", tostring(nCount))
-	self.nCurrentCraftAmount = nCount
+	self.nCurrentCraftAmount = nCount or 0
 end
 
 function mtCraftQueueItem:TryCraft()
@@ -137,22 +138,17 @@ function mtCraftQueueItem:TryCraft()
 	-- make sure we have enough space in inventory
 	
 	-- check satchel first
-	if itemOutput.CanMoveToSupplySatchel() then
-		local bFound = false
-		for strCategory, arItems in pairs(unitPlayer:GetSupplySatchelItems(0)) do
-			for idx, tCurrItem in ipairs(arItems) do
-				if tCurrItem.itemMaterial == itemOutput then
-					bFound = true
-					nRoomForOutputItems = knSupplySatchelStackSize - tCurrItem.nCount					
-					break
-				end
+	local bFound = false
+	
+	for strCategory, arItems in pairs(unitPlayer:GetSupplySatchelItems(0)) do
+		for idx, tCurrItem in ipairs(arItems) do
+			if tCurrItem.itemMaterial == itemOutput then
+				bFound = true
+				nRoomForOutputItems = knSupplySatchelStackSize - tCurrItem.nCount					
+				break
 			end
 		end
-		
-		if not bFound then
-			nRoomForOutputItems = knSupplySatchelStackSize
-		end
-	end
+	end	
 
 	-- calc free inventory slots
 	local nMaxStackSize = itemOutput:GetMaxStackCount() or 1
