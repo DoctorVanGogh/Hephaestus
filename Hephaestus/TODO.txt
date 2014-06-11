@@ -1,0 +1,4 @@
+Bugs:
+1. queue item not removed after last item created... event handler invocations missing
+2. non autocraft items do not restart (possibly related to #1)
+3. Castbar

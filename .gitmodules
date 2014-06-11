@@ -1,0 +1,15 @@
+[submodule "Hephaestus/lib/GeminiHook"]
+	path = Hephaestus/lib/GeminiHook
+	url = https://github.com/wildstarnasa/GeminiHook.git
+[submodule "Hephaestus/lib/GeminiAddon"]
+	path = Hephaestus/lib/GeminiAddon
+	url = https://github.com/wildstarnasa/GeminiAddon.git
+[submodule "Hephaestus/lib/GeminiLogging"]
+	path = Hephaestus/lib/GeminiLogging
+	url = https://github.com/wildstarnasa/GeminiLogging.git
+[submodule "Hephaestus/lib/AddonRegistry"]
+	path = Hephaestus/lib/AddonRegistry
+	url = git@github.com:DoctorVanGogh/AddonRegistry.git
+[submodule "CRBTradeskills/lib/AddonRegistry"]
+	path = CRBTradeskills/lib/AddonRegistry
+	url = git@github.com:DoctorVanGogh/AddonRegistry.git
