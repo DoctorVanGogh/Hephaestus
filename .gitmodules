@@ -10,3 +10,6 @@
 [submodule "Hephaestus/lib/AddonRegistry"]
 	path = Hephaestus/lib/AddonRegistry
 	url = git@github.com:DoctorVanGogh/AddonRegistry.git
+[submodule "CRBTradeskills"]
+	path = CRBTradeskills
+	url = git@github.com:DoctorVanGogh/CRBTradeskills.git
