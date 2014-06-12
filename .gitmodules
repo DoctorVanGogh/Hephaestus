@@ -13,3 +13,7 @@
 [submodule "CRBTradeskills"]
 	path = CRBTradeskills
 	url = git@github.com:DoctorVanGogh/CRBTradeskills.git
+[submodule "Hephaestus/lib/Loop"]
+	path = Hephaestus/lib/Loop
+	url = git@github.com:DoctorVanGogh/Loop.git
+	branch = master
