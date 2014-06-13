@@ -12,11 +12,11 @@ if APkg and (APkg.nVersion or 0) >= MINOR then
 	return -- no upgrade needed
 end
 
-local Signal = APkg and APkg.tPackage or {}
+local oo = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Base").tPackage
 
-local mtSignal = {}
+local Signal = APkg and APkg.tPackage or oo.class{}
 
-function mtSignal:__add(tfnCallback) 
+function Signal:__add(tfnCallback) 
 	if type(tfnCallback) == "function" then
 		table.insert(self, tfnCallback)
 	elseif type(tfnCallback) == "table" then
@@ -31,7 +31,7 @@ function mtSignal:__add(tfnCallback)
 end
 
 
-function mtSignal:__sub(tfnCallback)
+function Signal:__sub(tfnCallback)
 	for idx, tfn in ipairs(self) do
 		if tfn == tfnCallback then
 			table.remove(self, idx)
@@ -42,13 +42,13 @@ function mtSignal:__sub(tfnCallback)
 	return self		
 end
 
-function mtSignal:__call(...) 
+function Signal:__call(...) 
 	for idx, tfn in ipairs(self) do
 		tfn(unpack(arg))
 	end	
 end
 
-function mtSignal:Add(tOwner, strCallback)
+function Signal:Add(tOwner, strCallback)
 	local fnCall = function(luaCaller, ...) 
 		local t = luaCaller.tOwner
 		local strClb = luaCaller.strCallback
@@ -66,10 +66,5 @@ function mtSignal:Add(tOwner, strCallback)
 	return tCallback
 end
 
-mtSignal.__index = mtSignal
-
-function Signal:new(t)
-	return setmetatable(t or {}, mtSignal)
-end
 
 Apollo.RegisterPackage(Signal, MAJOR, MINOR, {})

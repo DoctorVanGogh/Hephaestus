@@ -14,8 +14,11 @@ local APkg = Apollo.GetPackage(MAJOR)
 if APkg and (APkg.nVersion or 0) >= MINOR then
 	return -- no upgrade needed
 end
+local oo = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Base").tPackage
 
-local CraftQueueItem = APkg and APkg.tPackage or {}
+local CraftQueueItem = APkg and APkg.tPackage or oo.class{}
+
+local CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPackage	
 
 -------------------------------------------------------------
 -- local values declarations
@@ -23,10 +26,7 @@ local CraftQueueItem = APkg and APkg.tPackage or {}
 local knSupplySatchelStackSize = 250
 
 
-local mtCraftQueueItem = {}
-
 local glog
-local CraftUtil
 
 function CraftQueueItem:OnLoad()
 	-- import GeminiLogging
@@ -37,67 +37,64 @@ function CraftQueueItem:OnLoad()
 		appender = "GeminiConsole"
 	})	
 	
-	self.log = glog
-	
-	-- import CraftUtil
-	CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPackage
+	self.log = glog	
 end
 
-function CraftQueueItem.new(tSchematicInfo, nAmount, tQueue, ...)
-	return setmetatable(
-		{ 
+function CraftQueueItem:__init(tSchematicInfo, nAmount, tQueue, ...)
+	glog:debug("__init(%s, %s, %s, ...)", tostring(tSchematicInfo), tostring(nAmount), tostring(tQueue))
+
+	ci = oo.rawnew(
+		self, 
+		{
 			tSchematicInfo = tSchematicInfo,
 			nAmount = nAmount,
 			tArgs = arg,
-			tQueue = tQueue
-		},
-		{
-			__index = mtCraftQueueItem
+			tQueue = tQueue		
 		}
-	)	
+	)
+	return ci
 end
 
-function mtCraftQueueItem:GetQueue()
+function CraftQueueItem:GetQueue()
 	return self.tQueue
 end
 
-function mtCraftQueueItem:GetSchematicInfo()
+function CraftQueueItem:GetSchematicInfo()
 	return self.tSchematicInfo
 end
 
-function mtCraftQueueItem:GetAmount()
+function CraftQueueItem:GetAmount()
 	return self.nAmount
 end
 
-function mtCraftQueueItem:SetAmount(nAmount)
-	glog:debug("CraftQueueItem:SetAmount(%s)", tostring(nAmount))
+function CraftQueueItem:SetAmount(nAmount)
 	self.nAmount = nAmount
 end
 
-function mtCraftQueueItem:CraftComplete()
+function CraftQueueItem:CraftComplete()
 	glog:debug("CraftQueueItem:CraftComplete()")
 
-	self:SetAmount(self:GetAmount() - self:GetCurrentCraftAmount())
-	--self.SetCurrentCraftAmount(nil)
 
-	glog:debug("CraftCompleted")
+	self:SetAmount(self:GetAmount() - (self:GetCurrentCraftAmount() or 0))
+	self:SetCurrentCraftAmount(nil)
+
 	self:GetQueue():GetItemChangedHandlers()(self)
 end
 
-function mtCraftQueueItem:GetMaxCraftable()
+function CraftQueueItem:GetMaxCraftable()
 	return CraftUtil:GetMaxCraftableForSchematic(self:GetSchematicInfo())
 end
 
-function mtCraftQueueItem:GetCurrentCraftAmount()
+function CraftQueueItem:GetCurrentCraftAmount()
 	return self.nCurrentCraftAmount
 end
 
-function mtCraftQueueItem:SetCurrentCraftAmount(nCount)
+function CraftQueueItem:SetCurrentCraftAmount(nCount)
 	glog:debug("CraftQueueItem:SetCurrentCraftAmount(%s)", tostring(nCount))
 	self.nCurrentCraftAmount = nCount or 0
 end
 
-function mtCraftQueueItem:TryCraft()
+function CraftQueueItem:TryCraft()
 	glog:debug("CraftQueueItem:TryCraft")
 
 	if self:GetMaxCraftable() == 0 then
@@ -120,6 +117,13 @@ function mtCraftQueueItem:TryCraft()
 		return
 	end
 	
+	local nAmount = self:GetAmount()
+	
+	if not nAmount or nAmount <= 0 then
+		glog:warn("Nothing to craft...")
+		return
+	end
+	
 	--[[ 
 		available keys:
 		- nSchematicId
@@ -130,13 +134,13 @@ function mtCraftQueueItem:TryCraft()
 		- nParentSchematicId 
 	]]
 	local bIsAutoCraft = tSchematicInfo.bIsAutoCraft or false
-	local nCraftAtOnceMax = tSchematicInfo.nCraftAtOnceMax or 1
+	local nCraftAtOnceMax = bIsAutoCraft and tSchematicInfo.nCraftAtOnceMax or 1
 	local itemOutput = tSchematicInfo.itemOutput
 	local nRoomForOutputItems = 0
 	local unitPlayer = GameLib.GetPlayerUnit()
 	
 	-- make sure we have enough space in inventory
-	
+	--[[ removed - current calculation yields negative values sometimes...
 	-- check satchel first
 	local bFound = false
 	
@@ -177,6 +181,9 @@ function mtCraftQueueItem:TryCraft()
 	end
 	
 	local nCount = math.min(nMaxCraftCounts, math.min(self:GetAmount(), nCraftAtOnceMax))
+	]]
+	local nCount = math.min(nAmount, nCraftAtOnceMax)
+	
 	glog:debug("%s", tostring(nCount))	
 	if not nCount then
 		return
@@ -186,10 +193,12 @@ function mtCraftQueueItem:TryCraft()
 	
 	if bIsAutoCraft then
 		glog:debug("CraftingLib.CraftItem(%s, nil, %s)", tostring(tSchematicInfo.nSchematicId), tostring(nCount))	
+
 		CraftingLib.CraftItem(tSchematicInfo.nSchematicId, nil, nCount)
 	else	
 		glog:debug("CraftingLib.CraftItem(%s)", tostring(tSchematicInfo.nSchematicId))	
-
+		
+	
 		CraftingLib.CraftItem(tSchematicInfo.nSchematicId, nil)	
 		-- TODO: make some moves (later)
 		

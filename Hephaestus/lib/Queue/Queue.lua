@@ -12,35 +12,21 @@ if APkg and (APkg.nVersion or 0) >= MINOR then
 	return -- no upgrade needed
 end
 
-local Queue = APkg and APkg.tPackage or {}
+local oo = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Base").tPackage
 
-local mtQueue = {}
+local Queue = APkg and APkg.tPackage or oo.class{
+	items = {}
+}
 
-function Queue.new(t)
-	t = t or {}
-	t.items = t.items or {}
-
-	return setmetatable(
-		t, 
-		{ 
-			__index = mtQueue
-		}
-	)
-end
-
-function Queue.GetMetatable()
-	return mtQueue
-end
-
-function mtQueue:GetItems()
+function Queue:GetItems()
 	return self.items
 end
 
-function mtQueue:Push(oItem)
+function Queue:Push(oItem)
 	table.insert(self.items, oItem)
 end
 
-function mtQueue:Pop()
+function Queue:Pop()
 	if #self.items == 0 then
 		return nil
 	else
@@ -50,7 +36,7 @@ function mtQueue:Pop()
 	end		
 end
 
-function mtQueue:Peek()
+function Queue:Peek()
 	if #self.items == 0 then
 		return nil
 	else
@@ -58,13 +44,13 @@ function mtQueue:Peek()
 	end		
 end
 
-function mtQueue:Clear()
+function Queue:Clear()
 	while #self.items ~= 0 do
 		table.remove(self.items)	
 	end
 end
 
-function mtQueue:Remove(tItem)
+function Queue:Remove(tItem)
 	for idx, item in ipairs(self.items) do
 		if item == tItem then
 			table.remove(self.items, idx)
@@ -74,7 +60,7 @@ function mtQueue:Remove(tItem)
 	return false
 end
 
-function mtQueue:GetCount()
+function Queue:GetCount()
 	return #self.items
 end
 

@@ -4,6 +4,13 @@
     <Script Name="lib/GeminiLogging/GeminiLogging.lua"/>
     <Script Name="lib/GeminiAddon/GeminiAddon.lua"/>
     <Script Name="lib/GeminiHook/GeminiHook-1.0.lua"/>
+    <Script Name="lib/Loop/base.lua"/>	
+    <Script Name="lib/Loop/table.lua"/>	
+    <Script Name="lib/Loop/collection/ObjectCache.lua"/>	
+    <Script Name="lib/Loop/simple.lua"/>	
+    <Script Name="lib/Loop/multiple.lua"/>	
+    <Script Name="lib/Loop/collection/OrderedSet.lua"/>	
+    <Script Name="lib/Loop/cached.lua"/>	
     <Script Name="lib/Queue/Queue.lua"/>
     <Script Name="lib/Signal/Signal.lua"/>
     <Script Name="CraftUtil.lua"/>

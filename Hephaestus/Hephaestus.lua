@@ -22,7 +22,7 @@ local Hephaestus = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
 local glog
 local inspect
 local CraftUtil
-local CraftQueue
+local CraftQueue 
 
 -- Replaces Hephaestus:OnLoad
 function Hephaestus:OnInitialize()
@@ -46,8 +46,8 @@ function Hephaestus:OnInitialize()
 	CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPackage
 	
 	-- import CraftQueue
-	CraftQueue = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftQueue").tPackage	
-	
+	CraftQueue = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftQueue").tPackage
+
 	Apollo.RegisterEventHandler("WindowManagementReady", "OnWindowManagementReady", self)  	
 end
 
@@ -70,7 +70,7 @@ function Hephaestus:OnDocumentReady()
 	self.wndQueue = Apollo.LoadForm(self.xmlDoc, "AutocraftQueue", nil, self)
 	self.wndQueue:Show(false, true)
 		
-	local tCraftQueue = CraftQueue.new()
+	local tCraftQueue = CraftQueue{}
 	tCraftQueue:GetChangedHandlers():Add(self, "RecreateQueue")
 	tCraftQueue:GetItemChangedHandlers():Add(self, "RefreshQueueItem")
 	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")	
@@ -261,6 +261,7 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue)
 	end
 	
 	local tSchematicInfo = item:GetSchematicInfo()
+
 	local nAmount = item:GetAmount()		
 	local bCurrentlyRunning = queue:IsRunning() and queue:Peek() == item
 	local nMaxCraftable = item:GetMaxCraftable()

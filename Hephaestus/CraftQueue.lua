@@ -12,15 +12,18 @@ if APkg and (APkg.nVersion or 0) >= MINOR then
 	return -- no upgrade needed
 end
 
-local CraftQueue = APkg and APkg.tPackage or {}
+local Signal = Apollo.GetPackage("DoctorVanGogh:Lib:Signal").tPackage		
+local Queue = Apollo.GetPackage("DoctorVanGogh:Lib:Queue").tPackage
+local CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPackage	
+local CraftQueueItem = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftQueueItem").tPackage	
 
-local mtCraftQueue = {}
+local oo = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Multiple").tPackage
+
+local CraftQueue = APkg and APkg.tPackage or oo.class({items={}, handlers={changed=Signal{}, itemChanged  = Signal{}, itemRemoved = Signal{}}}, Queue)
+
 
 local glog
-local Queue
-local Signal
-local CraftUtil
-local CraftQueueItem
+
 
 local ktQueueStates = {
 	Paused = 1,
@@ -37,68 +40,39 @@ function CraftQueue:OnLoad()
 	})	
 	
 	self.log = glog
-	
-	
-	-- import Queue	
-	Queue = Apollo.GetPackage("DoctorVanGogh:Lib:Queue").tPackage	
-	
-	-- import Signal
-	Signal = Apollo.GetPackage("DoctorVanGogh:Lib:Signal").tPackage	
-	
-	-- import CraftUtil
-	CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPackage
-	
-	-- import CraftQueueItem
-	CraftQueueItem = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftQueueItem").tPackage	
-
-	setmetatable(mtCraftQueue, { __index = Queue.GetMetatable()})	
 end
 
 
-function CraftQueue.new(t)
-	t = t or {}
-	t.items = t.items or {}
-	t.handlers = t.handlers or {}
-	t.handlers.changed = t.handlers.changed or Signal.new()
-	t.handlers.itemChanged = t.handlers.itemChanged or Signal.new()
-	t.handlers.itemRemoved = t.handlers.itemRemoved or Signal.new()
-
-	return setmetatable(
-		t,
-		{ __index = mtCraftQueue }
-	)
-end
-
-function mtCraftQueue:GetChangedHandlers()
+function CraftQueue:GetChangedHandlers()
 	return self.handlers.changed
 end
 
-function mtCraftQueue:GetItemChangedHandlers()
+function CraftQueue:GetItemChangedHandlers()
 	return self.handlers.itemChanged
 end
 
-function mtCraftQueue:GetItemRemovedHandlers()
+function CraftQueue:GetItemRemovedHandlers()
 	return self.handlers.itemRemoved
 end
 
 
-function mtCraftQueue:Push(tSchematicInfo, nAmount,...)
-	local item = CraftQueueItem.new(
+function CraftQueue:Push(tSchematicInfo, nAmount,...)
+	local item = CraftQueueItem (
 		tSchematicInfo,
 		nAmount,
 		self,
 		unpack(arg)
 	)
-	Queue.GetMetatable().Push(self, item)
+	Queue.Push(self, item)
 	self.handlers.changed()
 end
 
 
-function mtCraftQueue:IsRunning()
+function CraftQueue:IsRunning()
 	return self.state == ktQueueStates.Running
 end
 
-function mtCraftQueue:Start()
+function CraftQueue:Start()
 	if self.state == ktQueueStates.Running then
 		glog:warn("Already running")
 		return
@@ -127,7 +101,7 @@ function mtCraftQueue:Start()
 	self:Peek():TryCraft()		
 end
 
-function mtCraftQueue:Stop()
+function CraftQueue:Stop()
 	if self.state == ktQueueStates.Paused and not self:IsRunning() then
 		glog:warn("Already stopped")
 		return
@@ -145,7 +119,7 @@ end
 -------------------------------------------------------------
 -- Event handlers
 -------------------------------------------------------------
-function mtCraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp, arMaterialReturnedIds, idSchematicCrafted, idItemCrafted)
+function CraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp, arMaterialReturnedIds, idSchematicCrafted, idItemCrafted)
 	glog:debug("CraftQueue:OnCraftingSchematicComplete(%s, %s, %s, %s, %s, %s)", tostring(idSchematic), tostring(bPass), tostring(nEarnedXp), tostring(arMaterialReturnedIds), tostring(idSchematicCrafted), tostring(idItemCrafted))
 	
 	if not self:IsRunning() then
@@ -176,12 +150,12 @@ function mtCraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp,
 	Apollo.StartTimer("Hephaestus_DelayRecraftTimer")
 end
 
-function mtCraftQueue:OnCraftingInterrupted()
+function CraftQueue:OnCraftingInterrupted()
 	glog:debug("CraftQueue:OnCraftingInterrupted")
 	self:Stop()
 end
 
-function mtCraftQueue:OnRecraftDelay()
+function CraftQueue:OnRecraftDelay()
 	glog:debug("CraftQueue:OnRecraftDelay")
 	Apollo.StopTimer("Hephaestus_DelayRecraftTimer")
 	
