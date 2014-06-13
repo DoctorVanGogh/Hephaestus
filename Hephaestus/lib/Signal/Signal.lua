@@ -30,7 +30,6 @@ function Signal:__add(tfnCallback)
 	return self
 end
 
-
 function Signal:__sub(tfnCallback)
 	for idx, tfn in ipairs(self) do
 		if tfn == tfnCallback then
@@ -42,28 +41,47 @@ function Signal:__sub(tfnCallback)
 	return self		
 end
 
+function Signal:Remove(tfnCallback)
+	return self - tfnCallback
+end
+
 function Signal:__call(...) 
 	for idx, tfn in ipairs(self) do
 		tfn(unpack(arg))
 	end	
 end
 
-function Signal:Add(tOwner, strCallback)
+
+local function CreateCallable(tOwner, strCallbackKey)
+	assert(tOwner)
+	assert(strCallbackKey)
+	assert(tOwner[strCallbackKey])
+	
 	local fnCall = function(luaCaller, ...) 
 		local t = luaCaller.tOwner
-		local strClb = luaCaller.strCallback
+		local strClb = luaCaller.strCallbackKey
 		if t and strClb then
 			t[strClb](t, unpack(arg))
 		end
-	end
+	end		
 	
-	local tCallback = setmetatable({}, {__mode="v", __call = fnCall})
-	tCallback.tOwner = tOwner
-	tCallback.strCallback = strCallback	
+	local tCallable = setmetatable({}, {__mode="v", __call = fnCall})
+	tCallable.tOwner = tOwner
+	tCallable.strCallbackKey = strCallbackKey
+
+	return tCallable
+end
+
+
+function Signal:Add(tfnTarget, strCallback)
 		
-	local tmp = self + tCallback
-	
-	return tCallback
+	if strCallback then		
+		assert(type(tfnTarget) == "table")
+		local tmp = self + CreateCallable(tfnTarget, strCallback)		
+		return tCallback	
+	else
+		return self + tfnTarget
+	end
 end
 
 

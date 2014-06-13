@@ -103,6 +103,7 @@ function CraftQueue:Remove(item)
 end
 
 function CraftQueue:Pop()
+	glog:debug("Pop %s", inspect(self.items))
 	local item = Queue.Pop(self)
 	if item then
 		self.handlers.itemRemoved(item)	

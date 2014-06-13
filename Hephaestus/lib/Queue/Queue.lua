@@ -30,7 +30,7 @@ function Queue:Pop()
 	if #self.items == 0 then
 		return nil
 	else
-		local result = self[1]
+		local result = self.items[1]
 		table.remove(self.items, 1)	
 		return result
 	end		

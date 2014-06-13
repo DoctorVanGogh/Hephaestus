@@ -72,6 +72,7 @@ function Hephaestus:OnEnable()
   
 end
 
+
 function Hephaestus:OnDocumentReady()
 	if not self.xmlDoc then
 		return
