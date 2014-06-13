@@ -7,8 +7,11 @@ require "GameLib"
 require "CraftingLib"
 require "Tooltip"
 
+local kstrAddonName = "Hephaestus"
+
+
 local Hephaestus = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
-																	"Hephaestus", 
+																	kstrAddonName, 
 																	false,
 																	{
 																		"Drafto:Lib:inspect-1.2",
@@ -24,6 +27,11 @@ local glog
 local inspect
 local CraftUtil
 local CraftQueue 
+
+local knMaxCutoff = 1000
+
+local knMinQueueWidth = 500
+local knMinQueueHeight = 340
 
 -- Replaces Hephaestus:OnLoad
 function Hephaestus:OnInitialize()
@@ -50,6 +58,7 @@ function Hephaestus:OnInitialize()
 	CraftQueue = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftQueue").tPackage
 
 	Apollo.RegisterEventHandler("WindowManagementReady", "OnWindowManagementReady", self)  	
+	Apollo.RegisterEventHandler("InterfaceMenuListHasLoaded", "OnInterfaceMenuListHasLoaded", self)
 end
 
 -- Called when player has loaded and entered the world
@@ -68,12 +77,13 @@ function Hephaestus:OnDocumentReady()
 		return
 	end
 		
-	self.wndQueue = Apollo.LoadForm(self.xmlDoc, "AutocraftQueue", nil, self)
+	self.wndQueue = Apollo.LoadForm(self.xmlDoc, "CraftQueue", nil, self)
+	self.wndQueue:SetSizingMinimum(knMinQueueWidth, knMinQueueHeight)
 	self.wndQueue:Show(false, true)
 		
 	local tCraftQueue = CraftQueue{}
 		
-	tCraftQueue:GetChangedHandlers():Add(self, "RecreateQueue")
+	tCraftQueue:GetChangedHandlers():Add(self, "OnQueueChanged")
 	tCraftQueue:GetStateChangedHandlers():Add(self, "QueueStateChanged")	
 	tCraftQueue:GetItemChangedHandlers():Add(self, "RefreshQueueItem")
 	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")	
@@ -83,9 +93,10 @@ function Hephaestus:OnDocumentReady()
 	glog:debug("OnDocumentReady - Lastqueue=%s", inspect(self.tLastQueue))
 	if self.tLastQueue then
 		tCraftQueue:LoadFrom(self.tLastQueue)
-		self:RecreateQueue()
+		self:OnQueueChanged()
 	end	
-	Apollo.RegisterSlashCommand("ac", "OnAutoCraft", self)
+	Apollo.RegisterSlashCommand("cq", "OnCraftQueue", self)
+	Apollo.RegisterEventHandler("ToggleHephaestusCraftQueue", "ToggleQueueWindow", self)
 	
 	self:PostHook(self.tTradeskillSchematics, "Initialize")
 	self:PostHook(self.tTradeskillSchematics, "DrawSchematic")
@@ -102,6 +113,26 @@ function Hephaestus:OnWindowManagementReady()
 	else
 		self.bWindowManagementReady = true
 	end
+end
+
+
+function Hephaestus:OnInterfaceMenuListHasLoaded()
+	Event_FireGenericEvent(
+		"InterfaceMenuList_NewAddOn", 
+		kstrAddonName, 
+		{
+			"ToggleHephaestusCraftQueue", 
+			"", 
+			"Icon_Windows32_UI_CRB_InterfaceMenu_Tradeskills"}
+		)
+
+	self:UpdateInterfaceMenuAlerts()
+end
+
+function Hephaestus:UpdateInterfaceMenuAlerts()
+	local nCount = self.wndQueue and self.wndQueue:GetData() and self.wndQueue:GetData():GetCount()
+
+	Event_FireGenericEvent("InterfaceMenuList_AlertAddOn", kstrAddonName, {nCount > 0, nil, nCount})
 end
 
 
@@ -191,14 +222,11 @@ end
 ------------------------------------------------------------
 -- Hephaestus Event-Handlers
 ------------------------------------------------------------
-
----- New queue stuff - TODO: refactor outside this addon
-local knMaxCutoff = 1000
-
-
-function Hephaestus:UpdateCastBar()
-	-- TODO: implement
+function Hephaestus:OnQueueChanged()
+	self:RecreateQueue()
+	self:UpdateInterfaceMenuAlerts()
 end
+
 
 function Hephaestus:RefreshQueueHeader()
 	if not self.wndQueue then	
@@ -228,7 +256,6 @@ function Hephaestus:RefreshQueueHeader()
 		btnClear:Enable(nCount > 0)		
 	end
 	
-	self:UpdateCastBar()	
 end
 
 function Hephaestus:RecreateQueue()	
@@ -354,6 +381,7 @@ function Hephaestus:RemovedQueueItem(item, wndItekm)
 
 	wndItem:Destroy()	
 	self.wndQueue:FindChild("QueueContainer"):ArrangeChildrenVert()	
+	self:UpdateInterfaceMenuAlerts()
 end
 
 function Hephaestus:OnQueueItemCountChanged(wndHandler, wndControl, fNewValue, fOldValue )
@@ -535,7 +563,7 @@ end
 
 
 
-function Hephaestus:OnAutoCraft()
+function Hephaestus:OnCraftQueue()
 	self:ToggleQueueWindow()
 end
 
