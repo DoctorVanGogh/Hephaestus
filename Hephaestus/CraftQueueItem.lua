@@ -67,6 +67,10 @@ function CraftQueueItem:__init(tSchematicInfo, nAmount, tQueue)
 	return ci
 end
 
+function CraftQueueItem:Remove()
+	self.tQueue:Remove(self)
+end
+
 function CraftQueueItem:GetQueue()
 	return self.tQueue
 end

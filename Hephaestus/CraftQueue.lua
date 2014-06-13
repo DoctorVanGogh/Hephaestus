@@ -96,6 +96,19 @@ function CraftQueue:Clear()
 	self.handlers.changed()
 end
 
+function CraftQueue:Remove(item)
+	if Queue.Remove(self, item) then
+		self.handlers.itemRemoved(item)
+	end
+end
+
+function CraftQueue:Pop()
+	local item = Queue.Pop(self)
+	if item then
+		self.handlers.itemRemoved(item)	
+	end
+end
+
 function CraftQueue:Push(tSchematicInfo, nAmount,...)
 	local item = CraftQueueItem (
 		tSchematicInfo,
@@ -195,7 +208,6 @@ function CraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp, a
 	
 	if top:GetAmount() == 0 then
 		self:Pop()
-		self.handlers.itemRemoved(top)
 		
 		local nQueueLength = self:GetCount()
 		glog:debug("Queue length: %f.", nQueueLength)

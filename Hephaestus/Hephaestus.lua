@@ -364,7 +364,9 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	wndItem:SetData(item)
 end
 
-function Hephaestus:RemovedQueueItem(item, wndItekm)
+function Hephaestus:RemovedQueueItem(item, wndItem)
+	glog:debug("RemovedQueueItem %s", tostring(item))
+
 	if not wndItem then
 		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
 			if item == wnd:GetData() then
@@ -382,6 +384,8 @@ function Hephaestus:RemovedQueueItem(item, wndItekm)
 	wndItem:Destroy()	
 	self.wndQueue:FindChild("QueueContainer"):ArrangeChildrenVert()	
 	self:UpdateInterfaceMenuAlerts()
+	-- TODO: only do this if we fell down to 0 elements?
+	self:RefreshQueueHeader()
 end
 
 function Hephaestus:OnQueueItemCountChanged(wndHandler, wndControl, fNewValue, fOldValue )
@@ -400,18 +404,11 @@ function Hephaestus:OnRemoveQueueItem(wndHandler, wndControl)
 	if not self.wndQueue then	
 		return
 	end
-	
-	local queue = self.wndQueue:GetData()
-	
+
 	local wndItem = wndControl:GetParent()	
 	local item = wndItem:GetData()
-		
-	-- update data
-	queue:Remove(item)
-		
-	-- update ui
-	self:RemovedQueueItem(item, wndItem)
-	self:RefreshQueueHeader()
+	
+	item:Remove()		
 end
 
 function Hephaestus:OnQueueClear(wndHandler, wndControl)
