@@ -295,8 +295,8 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	spinnerAmount:SetMinMax(1, math.min(nMaxCraftable, 999))
 	spinnerAmount:SetValue(nAmount)
 					
-	btnUp:Enable(index and (index > 1))
-	btnDown:Enable(index and (index < queue:GetCount()))		
+	btnUp:Enable(index and (index > 1) and (index > 2 or not bCurrentlyRunning))
+	btnDown:Enable(index and (index < queue:GetCount()) and (index > 1 or not bCurrentlyRunning))		
 
 	btnRemove:Enable(not bCurrentlyRunning)
 	
