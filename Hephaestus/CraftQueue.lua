@@ -19,7 +19,17 @@ local CraftQueueItem = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftQueueIte
 
 local oo = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Multiple").tPackage
 
-local CraftQueue = APkg and APkg.tPackage or oo.class({items={}, handlers={changed=Signal{}, itemChanged  = Signal{}, itemRemoved = Signal{}}}, Queue)
+local CraftQueue = APkg and APkg.tPackage or oo.class(
+												{	
+													items={}, 
+													handlers={
+														changed = Signal{}, 
+														itemChanged  = Signal{}, 
+														itemRemoved = Signal{},
+														stateChanged = Signal{},
+													}
+												}, 
+												Queue)
 
 
 local glog
@@ -53,6 +63,10 @@ end
 
 function CraftQueue:GetItemRemovedHandlers()
 	return self.handlers.itemRemoved
+end
+
+function CraftQueue:GetStateChangedHandlers()
+	return self.handlers.stateChanged
 end
 
 
@@ -90,7 +104,7 @@ function CraftQueue:Start()
 	-- make sure enough materials are still present
 	self.state = ktQueueStates.Running
 	
-	self.handlers.changed()	
+	self.handlers.stateChanged()	
 	Apollo.RegisterEventHandler("CraftingInterrupted", "OnCraftingInterrupted", self)	
 	Apollo.RegisterEventHandler("CraftingSchematicComplete", "OnCraftingSchematicComplete", self)		
 	Apollo.RegisterTimerHandler("Hephaestus_DelayRecraftTimer", "OnRecraftDelay", self)
@@ -113,7 +127,7 @@ function CraftQueue:Stop()
 	Apollo.StopTimer("Hephaestus_DelayRecraftTimer")
 	
 	self.state = ktQueueStates.Paused
-	self.handlers.changed()	
+	self.handlers.stateChanged()	
 end
 
 -------------------------------------------------------------
@@ -134,12 +148,15 @@ function CraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp, a
 		top:CraftComplete()
 	end
 	
-	glog:debug(" - top amount remaining: %s", tostring(self:Peek():GetAmount()))
+	glog:debug(" - top amount remaining: %s", tostring(top:GetAmount()))
 	
-	if top:GetAmount() == 0 then		
+	if top:GetAmount() == 0 then
+		self:Pop()
 		self.handlers.itemRemoved(top)
 		
-		if self.GetCount() == 0 then
+		local nQueueLength = self:GetCount()
+		glog:debug("Queue length: %f.", nQueueLength)
+		if nQueueLength == 0 then
 			self:Stop()
 			return
 		end		
@@ -150,8 +167,8 @@ function CraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp, a
 	Apollo.StartTimer("Hephaestus_DelayRecraftTimer")
 end
 
-function CraftQueue:OnCraftingInterrupted()
-	glog:debug("CraftQueue:OnCraftingInterrupted")
+function CraftQueue:OnCraftingInterrupted(...)
+	glog:debug("CraftQueue:OnCraftingInterrupted: %s", inspect(arg))
 	self:Stop()
 end
 

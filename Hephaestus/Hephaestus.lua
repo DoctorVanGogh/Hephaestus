@@ -72,8 +72,10 @@ function Hephaestus:OnDocumentReady()
 		
 	local tCraftQueue = CraftQueue{}
 	tCraftQueue:GetChangedHandlers():Add(self, "RecreateQueue")
+	tCraftQueue:GetStateChangedHandlers():Add(self, "QueueStateChanged")	
 	tCraftQueue:GetItemChangedHandlers():Add(self, "RefreshQueueItem")
 	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")	
+
 	
 	self.wndQueue:SetData(tCraftQueue)	
 	
@@ -372,7 +374,6 @@ function Hephaestus:OnQueueStart(wndHandler, wndControl)
 	
 	local queue = self.wndQueue:GetData()	
 	queue:Start()
-	self:RefreshQueue()
 end
 
 function Hephaestus:OnQueueStop(wndHandler, wndControl)
@@ -386,8 +387,102 @@ function Hephaestus:OnQueueStop(wndHandler, wndControl)
 	
 	local queue = self.wndQueue:GetData()	
 	queue:Stop()
-	self:RefreshQueue()	
 end
+
+function Hephaestus:QueueStateChanged()
+	glog:debug("QueueStateChanged")
+	self:RefreshQueue()
+
+	local queue = self.wndQueue:GetData()
+	
+	-- add frame listener while crafting for castbar
+	if queue:IsRunning() then
+		glog:debug(" => Started")
+		Apollo.RegisterEventHandler("VarChange_FrameCount", "OnFrame", self)		
+	else
+		glog:debug(" => Stopped")
+		Apollo.RemoveEventHandler("VarChange_FrameCount", self)	
+		
+		self.wndQueue:FindChild("CastingFrame"):Show(false)	-- hide cast bar
+	end
+	
+end
+
+function Hephaestus:OnFrame()
+	local unitPlayer = GameLib.GetPlayerUnit()
+	
+	self:UpdateCastingBar(self.wndQueue:FindChild("BG_Art"), unitPlayer)
+end
+
+-- copied almost 100% verbatim frim TargetFrame, TargetFrame.lua 
+function Hephaestus:UpdateCastingBar(wndFrame, unitCaster)
+	-- Casting Bar Update
+
+	local bShowCasting = false
+	local bEnableGlow = false
+	local nZone = 0
+	local nMaxZone = 0
+	local nDuration = 0
+	local nElapsed = 0
+	local strSpellName = ""
+	local nElapsed = 0
+	local eType = Unit.CodeEnumCastBarType.None
+	local strFillSprite = ""
+	local strBaseSprite = ""
+	local strGlowSprite = ""
+
+	local wndCastFrame = wndFrame:FindChild("CastingFrame")
+	local wndCastProgress = wndFrame:FindChild("CastingBar")
+	local wndCastName = wndFrame:FindChild("CastingName")
+	local wndCastBase = wndFrame:FindChild("CastingBase")
+
+	-- results for GetCastBarType can be:
+	-- Unit.CodeEnumCastBarType.None
+	-- Unit.CodeEnumCastBarType.Normal
+	-- Unit.CodeEnumCastBarType.Telegraph_Backlash
+	-- Unit.CodeEnumCastBarType.Telegraph_Evade
+	if unitCaster:ShouldShowCastBar() then
+		eType = unitCaster:GetCastBarType()
+
+
+		if eType ~= Unit.CodeEnumCastBarType.None then
+
+			bShowCasting = true
+			bEnableGlow = true
+			nZone = 0
+			nMaxZone = 1
+			nDuration = unitCaster:GetCastDuration()
+			nElapsed = unitCaster:GetCastElapsed()
+			if wndCastProgress ~= nil then
+				wndCastProgress:SetTickLocations(0, 100, 200, 300)
+			end
+
+			strSpellName = unitCaster:GetCastName()
+		end
+	end
+
+	wndCastFrame:Show(bShowCasting)
+	if wndCastProgress ~= nil then
+		wndCastProgress:Show(bShowCasting)
+		wndCastName:Show(bShowCasting)
+	end
+
+	if bShowCasting and nDuration > 0 and nMaxZone > 0 then
+		if wndCastProgress ~= nil then
+			-- add a countdown timer if nDuration is > 4.999 seconds.
+			local strDuration = nDuration > 4999 and " (" .. string.format("%00.01f", (nDuration-nElapsed)/1000)..")" or ""
+			
+			wndCastProgress:Show(bShowCasting)
+			wndCastProgress:SetMax(nDuration)
+			wndCastProgress:SetProgress(nElapsed)
+			wndCastProgress:EnableGlow(bEnableGlow)
+			wndCastName:SetText(strSpellName .. strDuration)
+		end
+	end
+
+end
+
+
 
 function Hephaestus:ToggleQueueWindow()
 	if not self.wndQueue then
