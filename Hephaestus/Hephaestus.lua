@@ -177,6 +177,8 @@ end
 --[[ 
 	Slightly move the original 'Simple Craft' & 'Load Schematic'
 	buttons, add out own dropdown next to them
+	
+	add 'x5' to output icon
 ]]
 function Hephaestus:Initialize(luaCaller, wndParent, nSchematicId, strSearchQuery)
 	local wndRightBottomPreview = luaCaller.wndMain:FindChild("RightBottomCraftPreview")
@@ -193,16 +195,42 @@ function Hephaestus:Initialize(luaCaller, wndParent, nSchematicId, strSearchQuer
 		self.wndDropdownRepeats = wndAddQueueDropdown:GetChildren()[1]
 		wndAddQueueDropdown:AttachWindow(self.wndDropdownRepeats)			
 	end
+	
+	local wndSchematicIcon = luaCaller.wndMain:FindChild("SchematicIcon")
+	
+	local wndOutputCount = wndSchematicIcon:FindChild("SchematicOutputCount")
+	
+	if not wndOutputCount  then
+		wndOutputCount = Apollo.LoadForm(self.xmlDoc, "SchematicOutputCount", wndSchematicIcon, self)
+		self.wndOutputCount = wndOutputCount
+	end	
+	
 end
-
-function Hephaestus:DrawSchematic(luaCaller, tSchematic)
-
-	if not self.wndDropdownRepeats then
-		return
+ 
+ function Hephaestus:DrawSchematic(luaCaller, tSchematic)
+	local tSchematicInfo = CraftingLib.GetSchematicInfo(tSchematic.nSchematicId)	
+	
+	--[[ add output count ]]
+	if self.wndOutputCount then
+		local nCraftCount = tSchematicInfo.nCreateCount or 1
+		local nCritCount = tSchematicInfo.nCritCount or 1
+ 
+		local strText
+		
+		if nCraftCount ~= nCritCount then
+			strText = string.format("x %.f(*%.f*)", nCraftCount, nCritCount)		
+		else
+			strText = string.format("x %.f", nCraftCount)
+		end
+		
+		self.wndOutputCount:SetText(strText)
 	end
 
-	local tSchematicInfo = CraftingLib.GetSchematicInfo(tSchematic.nSchematicId)
-	
+	--[[ add dropdown ]]
+ 	if not self.wndDropdownRepeats then
+ 		return
+ 	end
+
 	if not tSchematicInfo then
 		return
 	end

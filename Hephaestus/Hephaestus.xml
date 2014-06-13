@@ -94,4 +94,5 @@
             </Control>
         </Control>
     </Form>
+    <Form Class="Window" LAnchorPoint="0" LAnchorOffset="0" TAnchorPoint="0" TAnchorOffset="0" RAnchorPoint="1" RAnchorOffset="-3" BAnchorPoint="1" BAnchorOffset="-1" RelativeToClient="1" Font="CRB_InterfaceSmall" Text="x5" BGColor="ffffffff" TextColor="ffffffff" Template="Default" TooltipType="OnCursor" Name="SchematicOutputCount" Border="0" Picture="0" SwallowMouseClicks="1" Moveable="0" Escapable="0" Overlapped="0" TooltipColor="" TextId="" DT_BOTTOM="1" DT_RIGHT="1"/>
 </Forms>
