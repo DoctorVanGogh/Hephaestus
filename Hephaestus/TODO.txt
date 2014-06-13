@@ -1,2 +1,14 @@
 Bugs:
 4. nasty bug in TryCraft max calculation - sometimes negative results...
+
+Features:
+1. Move up/down buttons
+2. Dynamic inventory checks
+
+
+Extended Featuers:
+3. 'Blueprints' for circuit crafting
+4. Variants for grid crafting
+
+
+
