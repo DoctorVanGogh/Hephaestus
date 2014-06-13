@@ -58,6 +58,14 @@ function CraftQueueItem:GetQueue()
 	return self.tQueue
 end
 
+function CraftQueueItem:MoveForward()
+	return self:GetQueue():Forward(self)
+end
+
+function CraftQueueItem:MoveBackward()
+	return self:GetQueue():Backward(self)
+end
+
 function CraftQueueItem:GetSchematicInfo()
 	return self.tSchematicInfo
 end

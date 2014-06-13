@@ -86,6 +86,25 @@ function CraftQueue:Push(tSchematicInfo, nAmount,...)
 	self.handlers.changed()
 end
 
+function CraftQueue:Forward(oItem)
+	assert(oo.instanceof(oItem, CraftQueueItem))
+	if Queue.Forward(self, oItem) then
+		self.handlers.changed()
+		return true		
+	else
+		return false
+	end
+end
+
+function CraftQueue:Backward(oItem)
+	assert(oo.instanceof(oItem, CraftQueueItem))
+	if Queue.Backward(self, oItem) then
+		self.handlers.changed()
+		return true
+	else
+		return false
+	end
+end
 
 function CraftQueue:IsRunning()
 	return self.state == ktQueueStates.Running

@@ -1,5 +1,5 @@
 Features:
-1. Move up/down buttons
+1. -Move up/down buttons-
 2. Dynamic inventory checks
 3. -Tooltips for items in repeat & queue items-
 4. CTRL-left click on material => switch to schematic

@@ -1,4 +1,4 @@
-<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Queue items, multi item creation and other enhancements for crafting">
+<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Crafting Enhancements: Multi item crafting for simple schematics">
     <Script Name="lib/AddonRegistry/AddonRegistry.lua"/>
     <Script Name="lib/GeminiLogging/inspect.lua"/>
     <Script Name="lib/GeminiLogging/GeminiLogging.lua"/>

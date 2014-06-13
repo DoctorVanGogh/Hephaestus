@@ -64,4 +64,32 @@ function Queue:GetCount()
 	return #self.items
 end
 
+function Queue:Forward(oItem)
+	for idx, item in ipairs(self.items) do
+		if item == oItem then
+			if idx > 1 then
+				local oSwap = self.items[idx - 1]
+				self.items[idx - 1] = item
+				self.items[idx] = oSwap
+				return true
+			end		
+		end
+	end
+	return false
+end
+
+function Queue:Backward(oItem)
+	for idx, item in ipairs(self.items) do
+		if item == oItem then
+			if idx < #self.items then
+				local oSwap = self.items[idx + 1]
+				self.items[idx + 1] = item
+				self.items[idx] = oSwap
+				return true
+			end		
+		end
+	end
+	return false
+end
+
 Apollo.RegisterPackage(Queue, MAJOR, MINOR, {})

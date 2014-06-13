@@ -214,7 +214,7 @@ function Hephaestus:RecreateQueue()
 	
 	for idx, item in ipairs(items) do
 		local wndItem = Apollo.LoadForm(self.xmlDoc, "QueueItem", queueContainer , self)
-		self:RefreshQueueItem(item, wndItem, queue)							
+		self:RefreshQueueItem(item, wndItem, queue, idx)							
 	end	
 	queueContainer:ArrangeChildrenVert()	
 		
@@ -232,12 +232,12 @@ function Hephaestus:RefreshQueue()
 	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
 	for idx, wndItem in ipairs(queueContainer:GetChildren()) do
 		local item = wndItem:GetData()
-		self:RefreshQueueItem(item, wndItem, queue)							
+		self:RefreshQueueItem(item, wndItem, queue, idx)							
 	end	
 	queueContainer:ArrangeChildrenVert()			
 end
 
-function Hephaestus:RefreshQueueItem(item, wndItem, queue)
+function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	glog:debug("Hephaestus:RefreshQueueItem(%s)", tostring(item))
 	if not item then
 		glog:debug("nil item:")
@@ -245,10 +245,11 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue)
 		return
 	end	
 	
-	if not wndItem then
+	if not wndItem or not index then
 		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
 			if item == wnd:GetData() then
 				wndItem = wnd
+				index = idx
 				break
 			end		
 		end
@@ -294,15 +295,15 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue)
 	spinnerAmount:SetMinMax(1, math.min(nMaxCraftable, 999))
 	spinnerAmount:SetValue(nAmount)
 					
-	btnUp:Enable(false)			-- NYI
-	btnDown:Enable(false)		-- NYI
+	btnUp:Enable(index and (index > 1))
+	btnDown:Enable(index and (index < queue:GetCount()))		
 
 	btnRemove:Enable(not bCurrentlyRunning)
 	
 	wndItem:SetData(item)
 end
 
-function Hephaestus:RemovedQueueItem(item, wndItem)
+function Hephaestus:RemovedQueueItem(item, wndItekm)
 	if not wndItem then
 		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
 			if item == wnd:GetData() then
@@ -577,3 +578,26 @@ end
 function Hephaestus:HelperBuildItemTooltip(wndArg, itemCurr)
 	Tooltip.GetItemTooltipForm(self, wndArg, itemCurr, {bPrimary = true, bSelling = false, itemCompare = itemCurr:GetEquippedItemForItemType()})
 end
+
+
+function Hephaestus:OnMoveQueueItemForward( wndHandler, wndControl, eMouseButton )
+	if wndHandler ~= wndControl then
+		return		
+	end
+	
+	local item = wndControl:GetParent():GetData()
+	
+	item:MoveForward()	
+end
+
+
+function Hephaestus:OnMoveQueueItemBackward( wndHandler, wndControl, eMouseButton )
+	if wndHandler ~= wndControl then
+		return		
+	end
+	
+	local item = wndControl:GetParent():GetData()
+	
+	item:MoveBackward()	
+end
+
