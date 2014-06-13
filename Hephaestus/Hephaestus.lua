@@ -5,6 +5,7 @@
 
 require "GameLib"
 require "CraftingLib"
+require "Tooltip"
 
 local Hephaestus = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
 																	"Hephaestus", 
@@ -284,6 +285,8 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue)
 	wndItem:FindChild("GlowActive"):Show(bCurrentlyRunning)
 	wndCount:SetText(sCount)
 
+	self:HelperBuildItemTooltip(wndItem:FindChild("Item"), tSchematicInfo.itemOutput)
+	
 	wndItem:FindChild("Icon"):SetSprite(tSchematicInfo.itemOutput:GetIcon())
 	wndItem:FindChild("Name"):SetText(tSchematicInfo.strName)
 	
@@ -518,6 +521,8 @@ function Hephaestus:UpdateRepeatItem(tSchematicInfo, wndTarget)
 		strMaxCount = "*"
 		nMaxCraftable = knMaxCutoff
 	end	
+
+	self:HelperBuildItemTooltip(wndTarget:FindChild("Item"), tSchematicInfo.itemOutput)	
 	
 	wndTarget:FindChild("CostsPerRepeat"):SetAmount(nCostPerItem)
 	local wndCountSpinner = wndTarget:FindChild("CountSpinner")
@@ -567,4 +572,8 @@ function Hephaestus:OnAutoQueueClose(wndHandler, wndControl)
 	end
 	
 	self.wndQueue:Show(false)
+end
+
+function Hephaestus:HelperBuildItemTooltip(wndArg, itemCurr)
+	Tooltip.GetItemTooltipForm(self, wndArg, itemCurr, {bPrimary = true, bSelling = false, itemCompare = itemCurr:GetEquippedItemForItemType()})
 end

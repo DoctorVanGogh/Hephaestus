@@ -1,16 +1,16 @@
-<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Crafting Enhancements: Multi item crafting for simple schematics">
+<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Queue items, multi item creation and other enhancements for crafting">
     <Script Name="lib/AddonRegistry/AddonRegistry.lua"/>
     <Script Name="lib/GeminiLogging/inspect.lua"/>
     <Script Name="lib/GeminiLogging/GeminiLogging.lua"/>
     <Script Name="lib/GeminiAddon/GeminiAddon.lua"/>
     <Script Name="lib/GeminiHook/GeminiHook-1.0.lua"/>
-    <Script Name="lib/Loop/base.lua"/>	
-    <Script Name="lib/Loop/table.lua"/>	
-    <Script Name="lib/Loop/collection/ObjectCache.lua"/>	
-    <Script Name="lib/Loop/simple.lua"/>	
-    <Script Name="lib/Loop/multiple.lua"/>	
-    <Script Name="lib/Loop/collection/OrderedSet.lua"/>	
-    <Script Name="lib/Loop/cached.lua"/>	
+    <Script Name="lib/Loop/base.lua"/>
+    <Script Name="lib/Loop/table.lua"/>
+    <Script Name="lib/Loop/collection/ObjectCache.lua"/>
+    <Script Name="lib/Loop/simple.lua"/>
+    <Script Name="lib/Loop/multiple.lua"/>
+    <Script Name="lib/Loop/collection/OrderedSet.lua"/>
+    <Script Name="lib/Loop/cached.lua"/>
     <Script Name="lib/Queue/Queue.lua"/>
     <Script Name="lib/Signal/Signal.lua"/>
     <Script Name="CraftUtil.lua"/>
