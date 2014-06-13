@@ -50,6 +50,11 @@ function CraftQueue:OnLoad()
 	})	
 	
 	self.log = glog
+	
+	Apollo.RegisterTimerHandler("Hephaestus_DelayRecraftTimer", "OnRecraftDelay", self)
+	
+	Apollo.CreateTimer("Hephaestus_DelayRecraftTimer", 0.5, false)
+	Apollo.StopTimer("Hephaestus_DelayRecraftTimer")	
 end
 
 
@@ -107,9 +112,7 @@ function CraftQueue:Start()
 	self.handlers.stateChanged()	
 	Apollo.RegisterEventHandler("CraftingInterrupted", "OnCraftingInterrupted", self)	
 	Apollo.RegisterEventHandler("CraftingSchematicComplete", "OnCraftingSchematicComplete", self)		
-	Apollo.RegisterTimerHandler("Hephaestus_DelayRecraftTimer", "OnRecraftDelay", self)
-	
-	Apollo.CreateTimer("Hephaestus_DelayRecraftTimer", 0.5, false)
+
 	Apollo.StopTimer("Hephaestus_DelayRecraftTimer")
 	
 	self:Peek():TryCraft()		

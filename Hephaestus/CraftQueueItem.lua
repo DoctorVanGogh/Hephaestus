@@ -23,7 +23,6 @@ local CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPacka
 -------------------------------------------------------------
 -- local values declarations
 -------------------------------------------------------------
-local knSupplySatchelStackSize = 250
 
 
 local glog
@@ -135,56 +134,19 @@ function CraftQueueItem:TryCraft()
 	]]
 	local bIsAutoCraft = tSchematicInfo.bIsAutoCraft or false
 	local nCraftAtOnceMax = bIsAutoCraft and tSchematicInfo.nCraftAtOnceMax or 1
-	local itemOutput = tSchematicInfo.itemOutput
+	local tItemOutput = tSchematicInfo.itemOutput
 	local nRoomForOutputItems = 0
 	local unitPlayer = GameLib.GetPlayerUnit()
-	
+	local nCraftCount = math.max(tSchematicInfo.nCreateCount or 1, tSchematicInfo.nCritCount or 1) -- calculate defensively, in case there are ever crit crafts with more output
+		
 	-- make sure we have enough space in inventory
-	--[[ removed - current calculation yields negative values sometimes...
-	-- check satchel first
-	local bFound = false
+	local nMaxCraftCountsStashableInInventory = math.floor(CraftUtil:GetInventoryCountForItem(tItemOutput) / nCraftCount)
 	
-	for strCategory, arItems in pairs(unitPlayer:GetSupplySatchelItems(0)) do
-		for idx, tCurrItem in ipairs(arItems) do
-			if tCurrItem.itemMaterial == itemOutput then
-				bFound = true
-				nRoomForOutputItems = knSupplySatchelStackSize - tCurrItem.nCount					
-				break
-			end
-		end
-	end	
+	local nMaxCraftable = self:GetMaxCraftable() or 0
 
-	-- calc free inventory slots
-	local nMaxStackSize = itemOutput:GetMaxStackCount() or 1
+	local nCount = math.min(nAmount, nCraftAtOnceMax, nMaxCraftable, nMaxCraftCountsStashableInInventory)
 	
-	local nOccupiedInventory = #unitPlayer:GetInventoryItems() or 0
-	local nTotalInventory = GameLib.GetTotalInventorySlots() or 0
-	local nAvailableInventory = nTotalInventory - nOccupiedInventory
-	nRoomForOutputItems = nRoomForOutputItems + nMaxStackSize * nAvailableInventory
-	
-	-- calc partial stacks in inventory
-	for idx, tCurrItem in ipairs(unitPlayer:GetInventoryItems()) do	
-		if tCurrItem.itemInBag == itemOutput then
-			local nStackSize = tCurrItem.itemInBag:GetStackCount() or 0
-			nRoomForOutputItems = nRoomForOutputItems + nMaxStackSize - nStackSize
-		end	
-	end
-	
-	-- calculate defensively, in case there are ever crit crafts with more output
-	local nCraftCount = math.max(tSchematicInfo.nCreateCount or 1, tSchematicInfo.nCritCount or 1)
-	
-	local nMaxCraftCounts = math.floor(nRoomForOutputItems / nCraftCount)
-	if nMaxCraftCounts < 1 then
-		glog:warn("Not enough room for output items - stopping")
-		self:GetQueue():Stop()
-		return		
-	end
-	
-	local nCount = math.min(nMaxCraftCounts, math.min(self:GetAmount(), nCraftAtOnceMax))
-	]]
-	local nCount = math.min(nAmount, nCraftAtOnceMax)
-	
-	glog:debug("%s", tostring(nCount))	
+	glog:debug("Amount: %.f, MaxAtOnce: %.f, MaxMaterialsAvailable: %.f, MaxCraftsStashable: %.f => Final Count: %.f", nAmount, nCraftAtOnceMax, nMaxCraftable, nMaxCraftCountsStashableInInventory, nCount)	
 	if not nCount then
 		return
 	end

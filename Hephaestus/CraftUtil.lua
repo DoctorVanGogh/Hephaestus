@@ -3,6 +3,8 @@
 -- Copyright (c) 2014 DoctorVanGogh on Wildstar forums - all rights reserved
 -----------------------------------------------------------------------------------------------
 
+require "GameLib"
+
 local MAJOR,MINOR = "DoctorVanGogh:Hephaestus:CraftUtil", 1
 
 -- Get a reference to the package information if any
@@ -13,6 +15,8 @@ if APkg and (APkg.nVersion or 0) >= MINOR then
 end
 
 local CraftUtil = APkg and APkg.tPackage or {}
+
+local knSupplySatchelStackSize = 250
 
 local glog
 
@@ -69,6 +73,45 @@ function CraftUtil:GetMaxCraftableForSchematic(tSchematicInfo)
 	end
 
 	return nNumCraftable
+end
+
+--[[
+	Calculated the maximum number of an item we could fir inside the palyers inventory
+	Checks: empty slots, partial stacks, partial supply sachel stacks
+]]
+function CraftUtil:GetInventoryCountForItem(tItem)
+	-- TODO: make this method use 'dynamic inventory state' methods
+	local unitPlayer = GameLib.GetPlayerUnit()
+
+	local nCount = 0
+	local nMaxStackSize = tItem:GetMaxStackCount() or 1
+	
+	-- assume all free inventory slots will be filled by full stacks
+	local nOccupiedInventory = #unitPlayer:GetInventoryItems() or 0
+	local nTotalInventory = GameLib.GetTotalInventorySlots() or 0
+	local nAvailableInventory = nTotalInventory - nOccupiedInventory
+	nCount = nCount + nMaxStackSize * nAvailableInventory	
+	
+
+	-- check for partial stacks in inventory
+	for idx, tCurrItem in ipairs(unitPlayer:GetInventoryItems()) do	
+		if tCurrItem.itemInBag == tItem then
+			local nStackSize = tCurrItem.itemInBag:GetStackCount() or 0
+			nCount = nCount + (nMaxStackSize - nStackSize)
+		end	
+	end	
+	
+	-- check for partial stacks in supply satchel
+	for strCategory, arItems in pairs(unitPlayer:GetSupplySatchelItems(0)) do
+		for idx, tCurrItem in ipairs(arItems) do
+			if tCurrItem.itemMaterial == tItem then				
+				nCount = nCount + (knSupplySatchelStackSize - tCurrItem.nCount)					
+				break
+			end
+		end
+	end	
+
+	return nCount
 end
 
 
