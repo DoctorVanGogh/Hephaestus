@@ -72,14 +72,19 @@ function Hephaestus:OnDocumentReady()
 	self.wndQueue:Show(false, true)
 		
 	local tCraftQueue = CraftQueue{}
+		
 	tCraftQueue:GetChangedHandlers():Add(self, "RecreateQueue")
 	tCraftQueue:GetStateChangedHandlers():Add(self, "QueueStateChanged")	
 	tCraftQueue:GetItemChangedHandlers():Add(self, "RefreshQueueItem")
 	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")	
-
 	
 	self.wndQueue:SetData(tCraftQueue)	
-	
+
+	glog:debug("OnDocumentReady - Lastqueue=%s", inspect(self.tLastQueue))
+	if self.tLastQueue then
+		tCraftQueue:LoadFrom(self.tLastQueue)
+		self:RecreateQueue()
+	end	
 	Apollo.RegisterSlashCommand("ac", "OnAutoCraft", self)
 	
 	self:PostHook(self.tTradeskillSchematics, "Initialize")
@@ -105,6 +110,35 @@ function Hephaestus:OnDisable()
   -- You would probably only use an OnDisable if you want to 
   -- build a "standby" mode, or be able to toggle modules on/off.
 end
+
+
+
+function Hephaestus:OnSave(eLevel)
+	-- We (re)store at account level,
+	if (eLevel ~= GameLib.CodeEnumAddonSaveLevel.Account) then
+		return
+	end
+	
+	if self.wndQueue and self.wndQueue:GetData() then
+		return { 
+			tCurrentQueue = self.wndQueue:GetData():Serialize()
+		}
+	end
+end
+
+function Hephaestus:OnRestore(eLevel, tData)
+	-- We (re)store at account level,
+	if (eLevel ~= GameLib.CodeEnumAddonSaveLevel.Account) then
+		return
+	end
+	
+	self.tLastQueue = tData.tCurrentQueue
+	
+	if self.tLastQueue and self.wndQueue and self.wndQueue:GetData() then
+		self.wndQueue:GetData():LoadFrom(self.tLastQueue)
+	end
+end
+
 
 ------------------------------------------------------------
 -- TradeskillSchematics Hooks
@@ -362,9 +396,7 @@ function Hephaestus:OnQueueClear(wndHandler, wndControl)
 	end
 	
 	local queue = self.wndQueue:GetData()	
-	queue:Clear()
-	
-	self:RecreateQueue(queue)
+	queue:Clear()	
 end
 
 function Hephaestus:OnQueueStart(wndHandler, wndControl)

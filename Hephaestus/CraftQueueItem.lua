@@ -39,7 +39,21 @@ function CraftQueueItem:OnLoad()
 	self.log = glog	
 end
 
-function CraftQueueItem:__init(tSchematicInfo, nAmount, tQueue, ...)
+function CraftQueueItem:Serialize()
+	return {
+		nSchematicId = self.tSchematicInfo.nSchematicId,
+		nAmount = self.nAmount
+	}	
+end 
+
+function CraftQueueItem:Deserialize(tStorage, tQueue)
+	if tStorage and tStorage.nSchematicId and tStorage.nAmount then
+		return CraftQueueItem(CraftingLib.GetSchematicInfo(tStorage.nSchematicId), tStorage.nAmount, tQueue)
+	end
+end
+
+function CraftQueueItem:__init(tSchematicInfo, nAmount, tQueue)
+
 	glog:debug("__init(%s, %s, %s, ...)", tostring(tSchematicInfo), tostring(nAmount), tostring(tQueue))
 
 	ci = oo.rawnew(
@@ -47,7 +61,6 @@ function CraftQueueItem:__init(tSchematicInfo, nAmount, tQueue, ...)
 		{
 			tSchematicInfo = tSchematicInfo,
 			nAmount = nAmount,
-			tArgs = arg,
 			tQueue = tQueue		
 		}
 	)

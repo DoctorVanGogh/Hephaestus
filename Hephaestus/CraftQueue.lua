@@ -58,6 +58,23 @@ function CraftQueue:OnLoad()
 end
 
 
+function CraftQueue:Serialize()
+	local result = {}
+	for idx, item in ipairs(self.items) do
+		table.insert(result, item:Serialize())
+	end
+	return result
+end
+
+function CraftQueue:LoadFrom(tStorage)
+	Queue.Clear(self)
+	for idx, item in ipairs(tStorage) do
+		Queue.Push(self, CraftQueueItem:Deserialize(item, self))
+	end
+	self.handlers.changed()
+end
+
+
 function CraftQueue:GetChangedHandlers()
 	return self.handlers.changed
 end
@@ -74,6 +91,10 @@ function CraftQueue:GetStateChangedHandlers()
 	return self.handlers.stateChanged
 end
 
+function CraftQueue:Clear()
+	Queue.Clear(self)
+	self.handlers.changed()
+end
 
 function CraftQueue:Push(tSchematicInfo, nAmount,...)
 	local item = CraftQueueItem (

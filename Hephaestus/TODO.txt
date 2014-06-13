@@ -5,9 +5,10 @@ Features:
 4. CTRL-left click on material => switch to schematic
 5. Show output quantity on icon (x5)
 6. Optionally hide 'Crafting Result' window during queue work
-7. Persist Queues
+7. -Persist Queues-
 8. Min sizes for queue window
 9. -remove 'Auto ...' from craft queue window-
+10. Load/Save queues, QueueManager
 
 Extended Featuers:
 3. 'Blueprints' for circuit crafting
