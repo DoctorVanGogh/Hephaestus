@@ -16,6 +16,8 @@ local Hephaestus = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
 																	{
 																		"Drafto:Lib:inspect-1.2",
 																		"Gemini:Logging-1.2",
+																		"Gemini:Locale-1.0",
+																		"Gemini:DB-1.0",
 																		"CRBTradeskills",
 																		"DoctorVanGogh:Lib:AddonRegistry",
 																		"DoctorVanGogh:Hephaestus:CraftUtil",																		
@@ -27,11 +29,13 @@ local glog
 local inspect
 local CraftUtil
 local CraftQueue 
+local GeminiLocale
 
 local knMaxCutoff = 1000
 
 local knMinQueueWidth = 500
 local knMinQueueHeight = 340
+
 
 -- Replaces Hephaestus:OnLoad
 function Hephaestus:OnInitialize()
@@ -47,6 +51,10 @@ function Hephaestus:OnInitialize()
 	})	
 	self.log = glog	
 
+	-- get localization
+	GeminiLocale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage
+	self.localization = GeminiLocale:GetLocale(kstrAddonName)
+	
 	-- get tradeskill schematics reference
 	local AddonRegistry = Apollo.GetPackage("DoctorVanGogh:Lib:AddonRegistry").tPackage
 	self.tTradeskillSchematics = AddonRegistry:GetAddon("Tradeskills", "TradeskillSchematics")
@@ -59,6 +67,20 @@ function Hephaestus:OnInitialize()
 
 	Apollo.RegisterEventHandler("WindowManagementReady", "OnWindowManagementReady", self)  	
 	Apollo.RegisterEventHandler("InterfaceMenuListHasLoaded", "OnInterfaceMenuListHasLoaded", self)
+	
+	-- init db
+	local dbDefaults = {
+		char = {
+			currentQueue = false
+		},
+		global = {
+			queues = {}
+		}
+	}	
+	self.db = Apollo.GetPackage("Gemini:DB-1.0").tPackage:New(self, dbDefaults)
+	self.db.RegisterCallback(self, "OnDatabaseShutdown", "DatabaseShutdown")
+	self.db.RegisterCallback(self, "OnDatabaseStartup", "DatabaseStartup")	
+
 end
 
 -- Called when player has loaded and entered the world
@@ -79,22 +101,20 @@ function Hephaestus:OnDocumentReady()
 	end
 		
 	self.wndQueue = Apollo.LoadForm(self.xmlDoc, "CraftQueue", nil, self)
+	GeminiLocale:TranslateWindow(self.localization, self.wndQueue)	
 	self.wndQueue:SetSizingMinimum(knMinQueueWidth, knMinQueueHeight)
 	self.wndQueue:Show(false, true)
 		
 	local tCraftQueue = CraftQueue{}
 		
-	tCraftQueue:GetChangedHandlers():Add(self, "OnQueueChanged")
-	tCraftQueue:GetStateChangedHandlers():Add(self, "QueueStateChanged")	
-	tCraftQueue:GetItemChangedHandlers():Add(self, "RefreshQueueItem")
-	tCraftQueue:GetItemRemovedHandlers():Add(self, "RemovedQueueItem")	
-	
+	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnCollectionChanged, "CollectionChanged")
+	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnPropertyChanged, "PropertyChanged")
+
 	self.wndQueue:SetData(tCraftQueue)	
 
-	glog:debug("OnDocumentReady - Lastqueue=%s", inspect(self.tLastQueue))
-	if self.tLastQueue then
-		tCraftQueue:LoadFrom(self.tLastQueue)
-		self:OnQueueChanged()
+	glog:debug("OnDocumentReady - Lastqueue=%s", inspect(self.db.char.currentQueue))
+	if self.db.char.currentQueue then
+		tCraftQueue:LoadFrom(self.db.char.currentQueue)
 	end	
 	Apollo.RegisterSlashCommand("cq", "OnCraftQueue", self)
 	Apollo.RegisterEventHandler("ToggleHephaestusCraftQueue", "ToggleQueueWindow", self)
@@ -104,6 +124,42 @@ function Hephaestus:OnDocumentReady()
 		
 	if self.bWindowManagementReady then
 		Event_FireGenericEvent("WindowManagementAdd", {wnd = self.wndQueue, strName = "Hephaestus Craft Queue"})	
+	end
+end
+
+function Hephaestus:CollectionChanged(sEvent, dummy, strChangeType, tItems, c, d)
+	glog:debug("CollectionChanged(%s, %s, %s, %s)", strChangeType, inspect(iItems), tostring(c), tostring(d))
+	if strChangeType == CraftQueue.CollectionChanges.Reset then 
+		self:RecreateQueue()	
+		self:UpdateInterfaceMenuAlerts()
+		self:UpdateCurrentQueueToDB()
+	elseif strChangeType == CraftQueue.CollectionChanges.Added then 
+		for idx, item in ipairs(tItems) do
+			self:AddQueueItem(item)
+		end
+		self:RefreshQueueHeader()
+		
+		self:UpdateInterfaceMenuAlerts()
+		self:UpdateCurrentQueueToDB()
+	elseif strChangeType == CraftQueue.CollectionChanges.Removed then 
+		for idx, item in ipairs(tItems) do
+			self:RemoveQueueItem(item)
+		end
+		self:RefreshQueueHeader()		
+		
+		self:UpdateInterfaceMenuAlerts()
+		self:UpdateCurrentQueueToDB()		
+	elseif strChangeType == CraftQueue.CollectionChanges.Refreshed then 
+		for idx, item in ipairs(tItems) do
+			self:RefreshQueueItem(item)
+		end
+		self:UpdateCurrentQueueToDB()		
+	end	
+end
+
+function Hephaestus:PropertyChanged(sEvent, dummy, strProperty)
+	if strProperty == CraftQueue.PropertyIsRunning then
+		self:IsRunningChanged()
 	end
 end
 
@@ -143,34 +199,24 @@ function Hephaestus:OnDisable()
   -- build a "standby" mode, or be able to toggle modules on/off.
 end
 
+function Hephaestus:DatabaseShutdown(db)		
+	self.db.char.currentQueue = self.wndQueue:GetData():Serialize()
+	--Print(inspect(db.char.currentQueue))
+	--db.char.currentQueue = self.wndQueue:GetData():Serialize()
+	-- TODO: store queue in db.global.queues
+end
 
+function Hephaestus:DatabaseStartup(db)
+	glog:debug("DatabaseStartup")
 
-function Hephaestus:OnSave(eLevel)
-	-- We (re)store at account level,
-	if (eLevel ~= GameLib.CodeEnumAddonSaveLevel.Account) then
-		return
-	end
-	
-	if self.wndQueue and self.wndQueue:GetData() then
-		return { 
-			tCurrentQueue = self.wndQueue:GetData():Serialize()
-		}
+	if db.char.currentQueue and self.wndQueue and self.wndQueue:GetData() then
+		self.wndQueue:GetData():LoadFrom(db.char.currentQueue)	
 	end
 end
 
-function Hephaestus:OnRestore(eLevel, tData)
-	-- We (re)store at account level,
-	if (eLevel ~= GameLib.CodeEnumAddonSaveLevel.Account) then
-		return
-	end
-	
-	self.tLastQueue = tData.tCurrentQueue
-	
-	if self.tLastQueue and self.wndQueue and self.wndQueue:GetData() then
-		self.wndQueue:GetData():LoadFrom(self.tLastQueue)
-	end
+function Hephaestus:UpdateCurrentQueueToDB()
+	--
 end
-
 
 ------------------------------------------------------------
 -- TradeskillSchematics Hooks
@@ -193,6 +239,7 @@ function Hephaestus:Initialize(luaCaller, wndParent, nSchematicId, strSearchQuer
 		
 		-- add our dropdown arrow
 		wndAddQueueDropdown = Apollo.LoadForm(self.xmlDoc, "AddQueueDropdown", wndRightBottomPreview, self)	
+		GeminiLocale:TranslateWindow(self.localization, wndAddQueueDropdown)			
 		self.wndDropdownRepeats = wndAddQueueDropdown:GetChildren()[1]
 		wndAddQueueDropdown:AttachWindow(self.wndDropdownRepeats)			
 	end
@@ -203,6 +250,7 @@ function Hephaestus:Initialize(luaCaller, wndParent, nSchematicId, strSearchQuer
 	
 	if not wndOutputCount  then
 		wndOutputCount = Apollo.LoadForm(self.xmlDoc, "SchematicOutputCount", wndSchematicIcon, self)
+		GeminiLocale:TranslateWindow(self.localization, wndOutputCount)			
 		self.wndOutputCount = wndOutputCount
 	end	
 	
@@ -241,6 +289,7 @@ end
 	
 	repeatContainer:DestroyChildren()
 	local wndRepeatItem = Apollo.LoadForm(self.xmlDoc, "RepeatItem", repeatContainer, self)
+	GeminiLocale:TranslateWindow(self.localization, wndRepeatItem)	
 	self:UpdateRepeatItem(tSchematicInfo, wndRepeatItem)
 	-- TODO: add variants
 
@@ -251,11 +300,6 @@ end
 ------------------------------------------------------------
 -- Hephaestus Event-Handlers
 ------------------------------------------------------------
-function Hephaestus:OnQueueChanged()
-	self:RecreateQueue()
-	self:UpdateInterfaceMenuAlerts()
-end
-
 
 function Hephaestus:RefreshQueueHeader()
 	if not self.wndQueue then	
@@ -304,6 +348,7 @@ function Hephaestus:RecreateQueue()
 	
 	for idx, item in ipairs(items) do
 		local wndItem = Apollo.LoadForm(self.xmlDoc, "QueueItem", queueContainer , self)
+		GeminiLocale:TranslateWindow(self.localization, wndItem)
 		self:RefreshQueueItem(item, wndItem, queue, idx)							
 	end	
 	queueContainer:ArrangeChildrenVert()	
@@ -325,6 +370,16 @@ function Hephaestus:RefreshQueue()
 		self:RefreshQueueItem(item, wndItem, queue, idx)							
 	end	
 	queueContainer:ArrangeChildrenVert()			
+end
+
+function Hephaestus:AddQueueItem(item)
+	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
+	
+	local wndItem = Apollo.LoadForm(self.xmlDoc, "QueueItem", queueContainer , self)
+	GeminiLocale:TranslateWindow(self.localization, wndItem)
+	self:RefreshQueueItem(item, wndItem, queue, idx)	
+	
+	queueContainer:ArrangeChildrenVert()		
 end
 
 function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
@@ -393,8 +448,8 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	wndItem:SetData(item)
 end
 
-function Hephaestus:RemovedQueueItem(item, wndItem)
-	glog:debug("RemovedQueueItem %s", tostring(item))
+function Hephaestus:RemoveQueueItem(item, wndItem)
+	glog:debug("RemoveQueueItem %s", tostring(item))
 
 	if not wndItem then
 		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
@@ -412,9 +467,6 @@ function Hephaestus:RemovedQueueItem(item, wndItem)
 
 	wndItem:Destroy()	
 	self.wndQueue:FindChild("QueueContainer"):ArrangeChildrenVert()	
-	self:UpdateInterfaceMenuAlerts()
-	-- TODO: only do this if we fell down to 0 elements?
-	self:RefreshQueueHeader()
 end
 
 function Hephaestus:OnQueueItemCountChanged(wndHandler, wndControl, fNewValue, fOldValue )
@@ -479,8 +531,8 @@ function Hephaestus:OnQueueStop(wndHandler, wndControl)
 	queue:Stop()
 end
 
-function Hephaestus:QueueStateChanged()
-	glog:debug("QueueStateChanged")
+function Hephaestus:IsRunningChanged()
+	glog:debug("IsRunningChanged")
 	self:RefreshQueue()
 
 	local queue = self.wndQueue:GetData()

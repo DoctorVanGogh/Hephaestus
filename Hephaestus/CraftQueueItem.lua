@@ -102,7 +102,7 @@ function CraftQueueItem:CraftComplete()
 	self:SetAmount(self:GetAmount() - (self:GetCurrentCraftAmount() or 0))
 	self:SetCurrentCraftAmount(nil)
 
-	self:GetQueue():GetItemChangedHandlers()(self)
+	self:GetQueue():FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, self)
 end
 
 function CraftQueueItem:GetMaxCraftable()
@@ -193,7 +193,7 @@ function CraftQueueItem:TryCraft()
 		CraftingLib.CompleteCraft()
 	end			
 	
-	self:GetQueue():GetItemChangedHandlers()(self)	
+	self:GetQueue():FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, self)		
 end
 
 
@@ -203,7 +203,6 @@ Apollo.RegisterPackage(
 	MINOR, 
 	{
 		"Gemini:Logging-1.2",
-		"DoctorVanGogh:Hephaestus:CraftUtil",
-		"DoctorVanGogh:Lib:Signal"		-- debatable if declaration necessary, but let's keep things clean
+		"DoctorVanGogh:Hephaestus:CraftUtil"
 	}
 )

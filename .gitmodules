@@ -17,3 +17,12 @@
 	path = Hephaestus/lib/Loop
 	url = git@github.com:DoctorVanGogh/Loop.git
 	branch = master
+[submodule "Hephaestus/lib/GeminiDB"]
+	path = Hephaestus/lib/GeminiDB
+	url = https://github.com/wildstarnasa/GeminiDB.git
+[submodule "Hephaestus/lib/GeminiLocale"]
+	path = Hephaestus/lib/GeminiLocale
+	url = https://github.com/wildstarnasa/GeminiLocale.git
+[submodule "Hephaestus/lib/CallbackHandler"]
+	path = Hephaestus/lib/CallbackHandler
+	url = https://github.com/wildstarnasa/CallbackHandler.git

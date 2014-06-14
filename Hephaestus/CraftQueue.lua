@@ -11,26 +11,24 @@ local APkg = Apollo.GetPackage(MAJOR)
 if APkg and (APkg.nVersion or 0) >= MINOR then
 	return -- no upgrade needed
 end
-
-local Signal = Apollo.GetPackage("DoctorVanGogh:Lib:Signal").tPackage		
+	
 local Queue = Apollo.GetPackage("DoctorVanGogh:Lib:Queue").tPackage
 local CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPackage	
 local CraftQueueItem = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftQueueItem").tPackage	
 
 local oo = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Multiple").tPackage
 
-local CraftQueue = APkg and APkg.tPackage or oo.class(
-												{	
-													items={}, 
-													handlers={
-														changed = Signal{}, 
-														itemChanged  = Signal{}, 
-														itemRemoved = Signal{},
-														stateChanged = Signal{},
-													}
-												}, 
-												Queue)
+local CraftQueue = APkg and APkg.tPackage
 
+if not CraftQueue then
+	local o = {	
+		items={} 		
+	}
+	
+	o.callbacks = o.callbacks or Apollo.GetPackage("Gemini:CallbackHandler-1.0").tPackage:New(o)
+	
+	CraftQueue = oo.class(o, Queue)
+end
 
 local glog
 
@@ -39,6 +37,18 @@ local ktQueueStates = {
 	Paused = 1,
 	Running = 2
 }
+
+CraftQueue.CollectionChanges = {
+	Reset = "reset",
+	Added = "added",
+	Removed = "removed",
+	Refreshed = "refeshed"
+}
+
+CraftQueue.EventOnCollectionChanged = "OnCollectionChanged"
+CraftQueue.EventOnPropertyChanged = "OnPropertyChanged"
+CraftQueue.PropertyIsRunning = "IsRunning"
+
 
 function CraftQueue:OnLoad()
 	-- import GeminiLogging
@@ -57,6 +67,19 @@ function CraftQueue:OnLoad()
 	Apollo.StopTimer("Hephaestus_DelayRecraftTimer")	
 end
 
+function CraftQueue:FireCollectionChangedEvent(strEventType, ...)
+	local items = nil
+	if #arg > 0 then
+		items = arg
+	end
+	glog:debug("FireCollectionChangedEvent %s, ", strEventType)
+	
+	self.callbacks:Fire(CraftQueue.EventOnCollectionChanged, nil, strEventType, items)
+end
+
+function CraftQueue:FirePropertyChangedEvent(strProperty)
+	self.callbacks:Fire(CraftQueue.EventOnPropertyChanged, strProperty)
+end
 
 function CraftQueue:Serialize()
 	local result = {}
@@ -71,34 +94,18 @@ function CraftQueue:LoadFrom(tStorage)
 	for idx, item in ipairs(tStorage) do
 		Queue.Push(self, CraftQueueItem:Deserialize(item, self))
 	end
-	self.handlers.changed()
+	self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Reset)
 end
 
-
-function CraftQueue:GetChangedHandlers()
-	return self.handlers.changed
-end
-
-function CraftQueue:GetItemChangedHandlers()
-	return self.handlers.itemChanged
-end
-
-function CraftQueue:GetItemRemovedHandlers()
-	return self.handlers.itemRemoved
-end
-
-function CraftQueue:GetStateChangedHandlers()
-	return self.handlers.stateChanged
-end
 
 function CraftQueue:Clear()
 	Queue.Clear(self)
-	self.handlers.changed()
+	self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Reset)	
 end
 
-function CraftQueue:Remove(item)
+function CraftQueue:Remove(item)	
 	if Queue.Remove(self, item) then
-		self.handlers.itemRemoved(item)
+		self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Removed, item)
 	end
 end
 
@@ -106,7 +113,7 @@ function CraftQueue:Pop()
 	glog:debug("Pop %s", inspect(self.items))
 	local item = Queue.Pop(self)
 	if item then
-		self.handlers.itemRemoved(item)	
+		self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Removed, item)
 	end
 end
 
@@ -118,13 +125,15 @@ function CraftQueue:Push(tSchematicInfo, nAmount,...)
 		unpack(arg)
 	)
 	Queue.Push(self, item)
-	self.handlers.changed()
+	
+	self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Added, item)	
 end
 
 function CraftQueue:Forward(oItem)
 	assert(oo.instanceof(oItem, CraftQueueItem))
-	if Queue.Forward(self, oItem) then
-		self.handlers.changed()
+	local idxMoved = Queue.Forward(self, oItem)
+	if idxMoved then	
+		self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, oItem, self.items[idxMoved + 1])	
 		return true		
 	else
 		return false
@@ -133,8 +142,10 @@ end
 
 function CraftQueue:Backward(oItem)
 	assert(oo.instanceof(oItem, CraftQueueItem))
-	if Queue.Backward(self, oItem) then
-		self.handlers.changed()
+	local idxMoved = Queue.Backward(self, oItem)
+	
+	if idxMoved then
+		self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, oItem, self.items[idxMoved - 1])	
 		return true
 	else
 		return false
@@ -163,7 +174,8 @@ function CraftQueue:Start()
 	-- make sure enough materials are still present
 	self.state = ktQueueStates.Running
 	
-	self.handlers.stateChanged()	
+	self:FirePropertyChangedEvent(CraftQueue.PropertyIsRunning)
+	
 	Apollo.RegisterEventHandler("CraftingInterrupted", "OnCraftingInterrupted", self)	
 	Apollo.RegisterEventHandler("CraftingSchematicComplete", "OnCraftingSchematicComplete", self)		
 
@@ -184,7 +196,8 @@ function CraftQueue:Stop()
 	Apollo.StopTimer("Hephaestus_DelayRecraftTimer")
 	
 	self.state = ktQueueStates.Paused
-	self.handlers.stateChanged()	
+	
+	self:FirePropertyChangedEvent(CraftQueue.PropertyIsRunning)
 end
 
 -------------------------------------------------------------
@@ -253,7 +266,7 @@ Apollo.RegisterPackage(
 	MINOR, 
 	{
 		"Gemini:Logging-1.2",
-		"DoctorVanGogh:Lib:Signal",
+		"Gemini:CallbackHandler-1.0",
 		"DoctorVanGogh:Lib:Queue",			
 		"DoctorVanGogh:Hephaestus:CraftUtil",
 		"DoctorVanGogh:Hephaestus:CraftQueueItem"			

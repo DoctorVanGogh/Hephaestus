@@ -9,6 +9,7 @@ Features:
 8. -Min sizes for queue window-
 9. -remove 'Auto ...' from craft queue window-
 10. Load/Save queues, QueueManager
+11. Update precursor, successor in item remove/refresh/add
 
 Extended Featuers:
 3. 'Blueprints' for circuit crafting
