@@ -95,6 +95,8 @@ end
 
 --[[
 	update our spinner+button combo for simple crafts
+	
+	add 'button' around materials, so we can catch the click events
 ]]
 function Hephaestus:DrawSchematic(luaCaller, tSchematic)
 	local tSchematicInfo = CraftingLib.GetSchematicInfo(tSchematic.nSchematicId)
@@ -134,6 +136,55 @@ function Hephaestus:DrawSchematic(luaCaller, tSchematic)
 			}		
 		})					
 	end	
+	
+	-- Materials
+	local bHaveEnoughMats = true
+	local nNumCraftable = 9000
+	
+	local wndMaterials = wndSchem:FindChild("MaterialsScroll")
+	
+	wndMaterials:DestroyChildren()
+	for key, tMaterial in pairs(tSchematicInfo.tMaterials) do
+		if tMaterial.nAmount > 0 then
+			local wndMaterial = Apollo.LoadForm(self.xmlDoc, "MaterialsItem", wndMaterials, self)
+			local nBackpackCount = tMaterial.itemMaterial:GetBackpackCount()
+			wndMaterial:FindChild("MaterialsIcon"):SetSprite(tMaterial.itemMaterial:GetIcon())
+			wndMaterial:FindChild("MaterialsName"):SetText(tMaterial.itemMaterial:GetName())
+			wndMaterial:FindChild("MaterialsIcon"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), nBackpackCount, tMaterial.nAmount))
+			wndMaterial:FindChild("MaterialsIconNotEnough"):Show(nBackpackCount < tMaterial.nAmount)
+			luaCaller:HelperBuildItemTooltip(wndMaterial, tMaterial.itemMaterial)
+
+			nNumCraftable = math.min(nNumCraftable, math.floor(nBackpackCount / tMaterial.nAmount))
+			bHaveEnoughMats = bHaveEnoughMats and nBackpackCount >= tMaterial.nAmount
+		end
+	end
+
+	-- Fake Material (Power Cores)
+	if not luaCaller.bCoordCraft then
+		local tAvailableCores = CraftingLib.GetAvailablePowerCores(tSchematic.nSchematicId)
+		if tAvailableCores then -- Some crafts won't have power cores
+			local wndMaterial = Apollo.LoadForm(self.xmlDoc, "MaterialsItem", wndMaterials, self)
+			local nBackpackCount = 0
+			for idx, itemMaterial in pairs(tAvailableCores) do
+				nBackpackCount = nBackpackCount + itemMaterial:GetStackCount()
+			end
+
+			local strPowerCore = Apollo.GetString("CBCrafting_PowerCore")
+			if karPowerCoreTierToString[tSchematicInfo.eTier] then
+				strPowerCore = String_GetWeaselString(Apollo.GetString("Tradeskills_AnyPowerCore"), karPowerCoreTierToString[tSchematicInfo.eTier])
+			end
+
+			wndMaterial:FindChild("MaterialsIcon"):SetSprite("ClientSprites:Icon_ItemMisc_UI_Item_Crafting_PowerCore_Green")
+			wndMaterial:FindChild("MaterialsIcon"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), nBackpackCount, "1"))
+			wndMaterial:FindChild("MaterialsName"):SetText(strPowerCore)
+			wndMaterial:FindChild("MaterialsIconNotEnough"):Show(nBackpackCount < 1)
+			wndMaterial:SetTooltip(Apollo.GetString("CBCrafting_PowerCoreHelperTooltip"))
+			nNumCraftable = math.min(nNumCraftable, nBackpackCount)
+		end
+	end
+	
+	wndMaterials:ArrangeChildrenTiles(0)	
+	
 end
 
 --[[ 
@@ -164,4 +215,16 @@ function Hephaestus:OnRightBottomSimpleCraftBtn(wndHandler, wndControl) -- Right
 		CraftingLib.CraftItem(wndHandler:GetData(), nil, nCount)	
 	end
 	Event_FireGenericEvent("AlwaysHideTradeskills")
+end
+
+function Hephaestus:OnMaterialItemClick(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	local strMaterialName = wndHandler:FindChild("MaterialsName"):GetText()
+		
+	local wndMain = self.tTradeskillSchematics.wndMain
+	wndMain:FindChild("SearchTopLeftInputBox"):SetText(strMaterialName)
+	self.tTradeskillSchematics:OnSearchTopLeftInputBoxChanged()	
 end
