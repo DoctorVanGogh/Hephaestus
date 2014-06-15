@@ -251,9 +251,17 @@ function Hephaestus:Initialize(luaCaller, wndParent, nSchematicId, strSearchQuer
 	end	
 	
 end
- 
- function Hephaestus:DrawSchematic(luaCaller, tSchematic)
+
+--[[
+	Modifications:
+		- Add 'x5' to output icon
+		- Make Materials clickable for auto search/navigation
+		- Add queue dropdown
+]]
+function Hephaestus:DrawSchematic(luaCaller, tSchematic)
 	local tSchematicInfo = CraftingLib.GetSchematicInfo(tSchematic.nSchematicId)	
+	
+	local wndSchem = luaCaller.wndMain:FindChild("RightSide")	
 	
 	--[[ add output count ]]
 	if self.wndOutputCount then
@@ -271,6 +279,56 @@ end
 		self.wndOutputCount:SetText(strText)
 	end
 
+	-- [[ add 'button' around materials, so we can catch the click events]]
+	-- Materials
+	local bHaveEnoughMats = true
+	local nNumCraftable = 9000
+	
+	local wndMaterials = wndSchem:FindChild("MaterialsScroll")
+	
+	wndMaterials:DestroyChildren()
+	for key, tMaterial in pairs(tSchematicInfo.tMaterials) do
+		if tMaterial.nAmount > 0 then
+			local wndMaterial = Apollo.LoadForm(self.xmlDoc, "MaterialsItem", wndMaterials, self)
+			local nBackpackCount = tMaterial.itemMaterial:GetBackpackCount()
+			wndMaterial:FindChild("MaterialsIcon"):SetSprite(tMaterial.itemMaterial:GetIcon())
+			wndMaterial:FindChild("MaterialsName"):SetText(tMaterial.itemMaterial:GetName())
+			wndMaterial:FindChild("MaterialsIcon"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), nBackpackCount, tMaterial.nAmount))
+			wndMaterial:FindChild("MaterialsIconNotEnough"):Show(nBackpackCount < tMaterial.nAmount)
+			luaCaller:HelperBuildItemTooltip(wndMaterial, tMaterial.itemMaterial)
+
+			nNumCraftable = math.min(nNumCraftable, math.floor(nBackpackCount / tMaterial.nAmount))
+			bHaveEnoughMats = bHaveEnoughMats and nBackpackCount >= tMaterial.nAmount
+		end
+	end
+
+	-- Fake Material (Power Cores)
+	if not luaCaller.bCoordCraft then
+		local tAvailableCores = CraftingLib.GetAvailablePowerCores(tSchematic.nSchematicId)
+		if tAvailableCores then -- Some crafts won't have power cores
+			local wndMaterial = Apollo.LoadForm(self.xmlDoc, "MaterialsItem", wndMaterials, self)
+			local nBackpackCount = 0
+			for idx, itemMaterial in pairs(tAvailableCores) do
+				nBackpackCount = nBackpackCount + itemMaterial:GetStackCount()
+			end
+
+			local strPowerCore = Apollo.GetString("CBCrafting_PowerCore")
+			if karPowerCoreTierToString[tSchematicInfo.eTier] then
+				strPowerCore = String_GetWeaselString(Apollo.GetString("Tradeskills_AnyPowerCore"), karPowerCoreTierToString[tSchematicInfo.eTier])
+			end
+
+			wndMaterial:FindChild("MaterialsIcon"):SetSprite("ClientSprites:Icon_ItemMisc_UI_Item_Crafting_PowerCore_Green")
+			wndMaterial:FindChild("MaterialsIcon"):SetText(String_GetWeaselString(Apollo.GetString("Achievements_ProgressBarProgress"), nBackpackCount, "1"))
+			wndMaterial:FindChild("MaterialsName"):SetText(strPowerCore)
+			wndMaterial:FindChild("MaterialsIconNotEnough"):Show(nBackpackCount < 1)
+			wndMaterial:SetTooltip(Apollo.GetString("CBCrafting_PowerCoreHelperTooltip"))
+			nNumCraftable = math.min(nNumCraftable, nBackpackCount)
+		end
+	end
+	
+	wndMaterials:ArrangeChildrenTiles(0)		
+	
+	
 	--[[ add dropdown ]]
  	if not self.wndDropdownRepeats then
  		return
@@ -387,6 +445,7 @@ function Hephaestus:RefreshQueueItemMoveButtons(wndQueueItem, bForwardEnable, bB
 	btnDown:Enable(bBackwardEnable)		
 end
 
+
 function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	glog:debug("Hephaestus:RefreshQueueItem(%s)", tostring(item))
 	if not item then
@@ -501,6 +560,7 @@ function Hephaestus:OnRemoveQueueItem(wndHandler, wndControl)
 	local item = wndItem:GetData()
 	
 	item:Remove()		
+
 end
 
 function Hephaestus:OnQueueClear(wndHandler, wndControl)
@@ -748,5 +808,17 @@ function Hephaestus:OnMoveQueueItemBackward( wndHandler, wndControl, eMouseButto
 	local item = wndControl:GetParent():GetData()
 	
 	item:MoveBackward()	
+end
+
+function Hephaestus:OnMaterialItemClick(wndHandler, wndControl)
+	if wndHandler ~= wndControl then
+		return
+	end
+	
+	local strMaterialName = wndHandler:FindChild("MaterialsName"):GetText()
+		
+	local wndMain = self.tTradeskillSchematics.wndMain
+	wndMain:FindChild("SearchTopLeftInputBox"):SetText(strMaterialName)
+	self.tTradeskillSchematics:OnSearchTopLeftInputBoxChanged()	
 end
 
