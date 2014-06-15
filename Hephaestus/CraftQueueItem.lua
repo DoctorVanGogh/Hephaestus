@@ -15,6 +15,7 @@ if APkg and (APkg.nVersion or 0) >= MINOR then
 	return -- no upgrade needed
 end
 local oo = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Base").tPackage
+local ooModelCraftQueue = Apollo.GetPackage("DoctorVanGogh:Lib:Loop:Multiple").tPackage
 
 local CraftQueueItem = APkg and APkg.tPackage or oo.class{}
 
@@ -102,7 +103,10 @@ function CraftQueueItem:CraftComplete()
 	self:SetAmount(self:GetAmount() - (self:GetCurrentCraftAmount() or 0))
 	self:SetCurrentCraftAmount(nil)
 
-	self:GetQueue():FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, self)
+	-- GOTCHA: we dont have a dependency on CraftQueue (intentionally!), so we got to get the eventname in a roundabout way ;)
+	local queue = self:GetQueue()
+	local CraftQueue = ooModelCraftQueue.classof(queue)		
+	queue:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, self)
 end
 
 function CraftQueueItem:GetMaxCraftable()
@@ -115,7 +119,7 @@ end
 
 function CraftQueueItem:SetCurrentCraftAmount(nCount)
 	glog:debug("CraftQueueItem:SetCurrentCraftAmount(%s)", tostring(nCount))
-	self.nCurrentCraftAmount = nCount or 0
+	self.nCurrentCraftAmount = nCount
 end
 
 function CraftQueueItem:TryCraft()
@@ -193,7 +197,10 @@ function CraftQueueItem:TryCraft()
 		CraftingLib.CompleteCraft()
 	end			
 	
-	self:GetQueue():FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, self)		
+	-- GOTCHA: we dont have a dependency on CraftQueue (intentionally!), so we got to get the eventname in a roundabout way ;)
+	local queue = self:GetQueue()
+	local CraftQueue = ooModelCraftQueue.classof(queue)
+	queue:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Refreshed, self)		
 end
 
 
@@ -203,6 +210,8 @@ Apollo.RegisterPackage(
 	MINOR, 
 	{
 		"Gemini:Logging-1.2",
+		"DoctorVanGogh:Lib:Loop:Base",				-- for self
+		"DoctorVanGogh:Lib:Loop:Multiple",			-- for craftqueue
 		"DoctorVanGogh:Hephaestus:CraftUtil"
 	}
 )

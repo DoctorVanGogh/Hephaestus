@@ -78,7 +78,7 @@ function CraftQueue:FireCollectionChangedEvent(strEventType, ...)
 end
 
 function CraftQueue:FirePropertyChangedEvent(strProperty)
-	self.callbacks:Fire(CraftQueue.EventOnPropertyChanged, strProperty)
+	self.callbacks:Fire(CraftQueue.EventOnPropertyChanged, nil, strProperty)
 end
 
 function CraftQueue:Serialize()
@@ -110,7 +110,7 @@ function CraftQueue:Remove(item)
 end
 
 function CraftQueue:Pop()
-	glog:debug("Pop %s", inspect(self.items))
+	glog:debug("Pop - %.f curently in queue", self and self.items and #self.items or -1)
 	local item = Queue.Pop(self)
 	if item then
 		self:FireCollectionChangedEvent(CraftQueue.CollectionChanges.Removed, item)
@@ -218,13 +218,15 @@ function CraftQueue:OnCraftingSchematicComplete(idSchematic, bPass, nEarnedXp, a
 		top:CraftComplete()
 	end
 	
-	glog:debug(" - top amount remaining: %s", tostring(top:GetAmount()))
+	local topAmountRemaining = top:GetAmount()
 	
-	if top:GetAmount() == 0 then
+	glog:debug(" - top amount remaining: %s", tostring(topAmountRemaining))
+	
+	if topAmountRemaining == 0 then
 		self:Pop()
 		
 		local nQueueLength = self:GetCount()
-		glog:debug("Queue length: %f.", nQueueLength)
+		glog:debug("Queue length: %.f", nQueueLength)
 		if nQueueLength == 0 then
 			self:Stop()
 			return

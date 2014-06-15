@@ -112,7 +112,7 @@ function Hephaestus:OnDocumentReady()
 
 	self.wndQueue:SetData(tCraftQueue)	
 
-	glog:debug("OnDocumentReady - Lastqueue=%s", inspect(self.db.char.currentQueue))
+	glog:debug("OnDocumentReady - db.char.currentQueue=%s", inspect(self.db.char.currentQueue))
 	if self.db.char.currentQueue then
 		tCraftQueue:LoadFrom(self.db.char.currentQueue)
 	end	
@@ -127,37 +127,37 @@ function Hephaestus:OnDocumentReady()
 	end
 end
 
-function Hephaestus:CollectionChanged(sEvent, dummy, strChangeType, tItems, c, d)
-	glog:debug("CollectionChanged(%s, %s, %s, %s)", strChangeType, inspect(iItems), tostring(c), tostring(d))
+function Hephaestus:CollectionChanged(sEvent, dummy, strChangeType, tItems)
+	glog:debug("CollectionChanged(%s, %.f items)", strChangeType, tItems and #tItems or 0)
 	if strChangeType == CraftQueue.CollectionChanges.Reset then 
 		self:RecreateQueue()	
 		self:UpdateInterfaceMenuAlerts()
-		self:UpdateCurrentQueueToDB()
 	elseif strChangeType == CraftQueue.CollectionChanges.Added then 
-		for idx, item in ipairs(tItems) do
-			self:AddQueueItem(item)
-		end
-		self:RefreshQueueHeader()
+		--for idx, item in ipairs(tItems) do
+		--	self:AddQueueItem(item)
+		--end
+		--self:RefreshQueueHeader()
 		
+		self:RecreateQueue()				-- TODO: remove this once precursor/successor updates work
 		self:UpdateInterfaceMenuAlerts()
-		self:UpdateCurrentQueueToDB()
 	elseif strChangeType == CraftQueue.CollectionChanges.Removed then 
-		for idx, item in ipairs(tItems) do
-			self:RemoveQueueItem(item)
-		end
-		self:RefreshQueueHeader()		
+		--for idx, item in ipairs(tItems) do
+		--	self:RemoveQueueItem(item)
+		--end
+		--self:RefreshQueueHeader()		
 		
-		self:UpdateInterfaceMenuAlerts()
-		self:UpdateCurrentQueueToDB()		
+		self:RecreateQueue()				-- TODO: remove this once precursor/successor updates work
+		self:UpdateInterfaceMenuAlerts()		
 	elseif strChangeType == CraftQueue.CollectionChanges.Refreshed then 
 		for idx, item in ipairs(tItems) do
 			self:RefreshQueueItem(item)
-		end
-		self:UpdateCurrentQueueToDB()		
+		end	
 	end	
+	glog:debug("CollectionChanged DONE")
 end
 
 function Hephaestus:PropertyChanged(sEvent, dummy, strProperty)
+	glog:debug("PropertyChanged(%s, nil, %s)",sEvent, strProperty)
 	if strProperty == CraftQueue.PropertyIsRunning then
 		self:IsRunningChanged()
 	end
@@ -212,10 +212,6 @@ function Hephaestus:DatabaseStartup(db)
 	if db.char.currentQueue and self.wndQueue and self.wndQueue:GetData() then
 		self.wndQueue:GetData():LoadFrom(db.char.currentQueue)	
 	end
-end
-
-function Hephaestus:UpdateCurrentQueueToDB()
-	--
 end
 
 ------------------------------------------------------------
@@ -373,6 +369,7 @@ function Hephaestus:RefreshQueue()
 end
 
 function Hephaestus:AddQueueItem(item)
+	glog:debug("Hephaestus:AddQueueItem(%s)", tostring(item))
 	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
 	
 	local wndItem = Apollo.LoadForm(self.xmlDoc, "QueueItem", queueContainer , self)
@@ -380,6 +377,14 @@ function Hephaestus:AddQueueItem(item)
 	self:RefreshQueueItem(item, wndItem, queue, idx)	
 	
 	queueContainer:ArrangeChildrenVert()		
+end
+
+function Hephaestus:RefreshQueueItemMoveButtons(wndQueueItem, bForwardEnable, bBackwardEnable)
+	local btnUp = wndQueueItem:FindChild("MoveUpButton")
+	local btnDown = wndQueueItem:FindChild("MoveDownButton")
+
+	btnUp:Enable(bForwardEnable)
+	btnDown:Enable(bBackwardEnable)		
 end
 
 function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
@@ -390,8 +395,10 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 		return
 	end	
 	
+	local wndQueueContainer = self.wndQueue:FindChild("QueueContainer")
+	
 	if not wndItem or not index then
-		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
+		for idx, wnd in ipairs(wndQueueContainer:GetChildren()) do		
 			if item == wnd:GetData() then
 				wndItem = wnd
 				index = idx
@@ -439,10 +446,12 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	spinnerAmount:Enable(not bCurrentlyRunning)
 	spinnerAmount:SetMinMax(1, math.min(nMaxCraftable, 999))
 	spinnerAmount:SetValue(nAmount)
-					
-	btnUp:Enable(index and (index > 1) and (index > 2 or not bCurrentlyRunning))
-	btnDown:Enable(index and (index < queue:GetCount()) and (index > 1 or not bCurrentlyRunning))		
-
+			
+	local bEnableUp = index and (index > 1) and (index > 2 or not bCurrentlyRunning)
+	local bEnableDown = index and (index > 1) and (index > 2 or not bCurrentlyRunning)
+			
+	self:RefreshQueueItemMoveButtons(wndItem, nEnableUp, bEnableDown)
+	
 	btnRemove:Enable(not bCurrentlyRunning)
 	
 	wndItem:SetData(item)
@@ -451,8 +460,10 @@ end
 function Hephaestus:RemoveQueueItem(item, wndItem)
 	glog:debug("RemoveQueueItem %s", tostring(item))
 
+	local queueContainer = self.wndQueue:FindChild("QueueContainer")
+
 	if not wndItem then
-		for idx, wnd in ipairs(self.wndQueue:FindChild("QueueContainer"):GetChildren()) do		
+		for idx, wnd in ipairs(queueContainer:GetChildren()) do		
 			if item == wnd:GetData() then
 				wndItem = wnd
 				break
@@ -466,7 +477,7 @@ function Hephaestus:RemoveQueueItem(item, wndItem)
 	end
 
 	wndItem:Destroy()	
-	self.wndQueue:FindChild("QueueContainer"):ArrangeChildrenVert()	
+	queueContainer:ArrangeChildrenVert()	
 end
 
 function Hephaestus:OnQueueItemCountChanged(wndHandler, wndControl, fNewValue, fOldValue )
