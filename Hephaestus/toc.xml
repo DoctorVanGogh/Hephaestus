@@ -2,7 +2,7 @@
     <Script Name="lib/AddonRegistry/AddonRegistry.lua"/>
     <Script Name="lib/GeminiLogging/inspect.lua"/>
     <Script Name="lib/GeminiLogging/GeminiLogging.lua"/>
-	<Script Name="lib/CallbackHandler/CallbackHandler-1.0.lua" />
+    <Script Name="lib/CallbackHandler/CallbackHandler-1.0.lua"/>
     <Script Name="lib/GeminiAddon/GeminiAddon.lua"/>
     <Script Name="lib/GeminiHook/GeminiHook-1.0.lua"/>
     <Script Name="lib/GeminiDB/GeminiDB-1.0.lua"/>
@@ -14,9 +14,9 @@
     <Script Name="lib/Loop/collection/OrderedSet.lua"/>
     <Script Name="lib/Loop/cached.lua"/>
     <Script Name="lib/Queue/Queue.lua"/>
-	<Script Name="localization/enUS.lua" />
-	<Script Name="localization/deDE.lua" />
-	<Script Name="localization/frFR.lua" />
+    <Script Name="localization/enUS.lua"/>
+    <Script Name="localization/deDE.lua"/>
+    <Script Name="localization/frFR.lua"/>
     <Script Name="CraftUtil.lua"/>
     <Script Name="CraftQueueItem.lua"/>
     <Script Name="CraftQueue.lua"/>
