@@ -1,7 +1,8 @@
 <Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Crafting Enhancements: Multi item crafting for simple schematics">
-    <Script Name="lib/AddonRegistry/AddonRegistry.lua"/>
-    <Script Name="lib/GeminiLogging/inspect.lua"/>
-    <Script Name="lib/GeminiLogging/GeminiLogging.lua"/>
+    <Script Name="lib/AddonRegistry/AddonRegistry.lua" />
+    <Script Name="lib/GeminiLogging/inspect.lua" />
+    <Script Name="lib/GeminiLogging/GeminiLogging.lua" />
+	<Script Name="lib/GeminiLocale/GeminiLocale.lua" />
     <Script Name="lib/CallbackHandler/CallbackHandler-1.0.lua"/>
     <Script Name="lib/GeminiAddon/GeminiAddon.lua"/>
     <Script Name="lib/GeminiHook/GeminiHook-1.0.lua"/>
