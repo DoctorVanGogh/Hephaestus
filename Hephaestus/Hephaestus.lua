@@ -36,6 +36,58 @@ local knMaxCutoff = 1000
 local knMinQueueWidth = 500
 local knMinQueueHeight = 340
 
+local kstrSpriteBlockerFail = "CRB_ActionBarIconSprites:sprActionBar_OrangeBorder"
+local kstrSpriteBlockerPass = "CRB_ActionBarIconSprites:sprActionBar_GreenBorder"
+
+
+local kstrSpriteBlockerDefault = "IconSprites:Icon_Mission_Explorer_ScavengerHunt"
+
+local kstrBlockerLocalizationKeyFormat="Blocker%s"
+
+-- GOTCHA: values should be defined in localiztion as string.format(kstrBlockerLocalizationKeyFormat, [value])
+local ktCraftBlockers = {
+	CraftingStation = "CraftingStation",
+	Mounted = "Mounted",
+	Ability = "Ability",
+	Materials = "Materials",
+	Inventory = "Inventory"
+}
+
+local ktCraftBlockersSprites = {
+	[ktCraftBlockers.CraftingStation] 		= "IconSprites:Icon_MapNode_Map_Tradeskill",
+	[ktCraftBlockers.Mounted]				= "IconSprites:Icon_Windows32_UI_CRB_InterfaceMenu_MountCustomization",
+	[ktCraftBlockers.Ability]				= "DatachronSprites:btnAbilityNormal",
+	[ktCraftBlockers.Materials]				= "IconSprites:Icon_Windows32_UI_CRB_InterfaceMenu_Credd",	
+	[ktCraftBlockers.Inventory]				= "CRB_BaseBarSprites:btnHUD_InventoryBagPressed"
+}
+
+local ktAllowedTradeskillsNonAutocraft = {
+	[CraftingLib.CodeEnumTradeskill.Architect] = true,
+	[CraftingLib.CodeEnumTradeskill.Cooking] = true,
+	[CraftingLib.CodeEnumTradeskill.Augmentor] = true	
+}
+
+local function GetBlockerStatus(self, eKey)
+	if not self.wndQueue then
+		return nil
+	end
+
+	if eKey == ktCraftBlockers.CraftingStation then
+		local dummy, bResult = CraftUtil:CanCraft()
+		return bResult
+	elseif eKey == ktCraftBlockers.Mounted then
+		local dummy1, dummy2, bResult = CraftUtil:CanCraft()
+		return bResult	
+	elseif eKey == ktCraftBlockers.Ability then
+		local dummy1, dummy2, dummy3, bResult = CraftUtil:CanCraft()
+		return bResult	
+	elseif eKey == ktCraftBlockers.Materials then
+		return self.wndQueue:GetData():Peek() and (self.wndQueue:GetData():Peek():GetMaxCraftable() > 0)
+	elseif eKey == ktCraftBlockers.Inventory then
+		return self.wndQueue:GetData():Peek() and (CraftUtil:GetInventoryCountForItem(self.wndQueue:GetData():Peek():GetSchematicInfo().itemOutput))
+	end
+end 
+
 
 -- Replaces Hephaestus:OnLoad
 function Hephaestus:OnInitialize()
@@ -45,7 +97,7 @@ function Hephaestus:OnInitialize()
 	-- setup logger
 	local GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
 	glog = GeminiLogging:GetLogger({
-		level = GeminiLogging.DEBUG,
+		level = GeminiLogging.INFO,
 		pattern = "%d [%c:%n] %l - %m",
 		appender = "GeminiConsole"
 	})	
@@ -85,13 +137,8 @@ end
 
 -- Called when player has loaded and entered the world
 function Hephaestus:OnEnable()
-  -- Do more initialization here, that really enables the use of your addon.
-  -- Register Events, Hook functions, Create Frames, Get information from 
-  -- the game that wasn't available in OnInitialize.  Here you can Load XML, etc.
-
 	self.xmlDoc = XmlDoc.CreateFromFile("Hephaestus.xml")
 	self.xmlDoc:RegisterCallback("OnDocumentReady", self)  
-  
 end
 
 
@@ -110,7 +157,16 @@ function Hephaestus:OnDocumentReady()
 	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnCollectionChanged, "CollectionChanged")
 	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnPropertyChanged, "PropertyChanged")
 
-	self.wndQueue:SetData(tCraftQueue)	
+	self.wndQueue:SetData(tCraftQueue)		
+	
+	self.wndBlockersContainer = self.wndQueue:FindChild("BlockersContainer")
+	for key, strName in pairs(ktCraftBlockers) do
+		local wndBlocker = Apollo.LoadForm(self.xmlDoc, "StatusBlocker", self.wndBlockersContainer, self)
+		wndBlocker:SetData(key)
+		wndBlocker:FindChild("Icon"):SetSprite(ktCraftBlockersSprites[key] or kstrSpriteBlockerDefault)
+	end
+	
+	self.wndBlockersContainer:ArrangeChildrenHorz()
 
 	glog:debug("OnDocumentReady - db.char.currentQueue=%s", inspect(self.db.char.currentQueue))
 	if self.db.char.currentQueue then
@@ -125,6 +181,10 @@ function Hephaestus:OnDocumentReady()
 	if self.bWindowManagementReady then
 		Event_FireGenericEvent("WindowManagementAdd", {wnd = self.wndQueue, strName = "Hephaestus Craft Queue"})	
 	end
+	
+	Apollo.RegisterTimerHandler("Hephaestus_QueueBlockerUpdates", "OnUpdateQueueBlockers", self)
+	
+	Apollo.CreateTimer("Hephaestus_QueueBlockerUpdates", 1, true)	
 end
 
 function Hephaestus:CollectionChanged(sEvent, dummy, strChangeType, tItems)
@@ -195,15 +255,10 @@ end
 
 function Hephaestus:OnDisable()
   -- Unhook, Unregister Events, Hide/destroy windows that you created.
-  -- You would probably only use an OnDisable if you want to 
-  -- build a "standby" mode, or be able to toggle modules on/off.
 end
 
 function Hephaestus:DatabaseShutdown(db)		
 	self.db.char.currentQueue = self.wndQueue:GetData():Serialize()
-	--Print(inspect(db.char.currentQueue))
-	--db.char.currentQueue = self.wndQueue:GetData():Serialize()
-	-- TODO: store queue in db.global.queues
 end
 
 function Hephaestus:DatabaseStartup(db)
@@ -226,18 +281,18 @@ end
 function Hephaestus:Initialize(luaCaller, wndParent, nSchematicId, strSearchQuery)
 	local wndRightBottomPreview = luaCaller.wndMain:FindChild("RightBottomCraftPreview")
 
-	local wndAddQueueDropdown = wndRightBottomPreview:FindChild("AddQueueDropdown")
+	self.wndAddQueueDropdown = wndRightBottomPreview:FindChild("AddQueueDropdown")	
 	
-	if not wndAddQueueDropdown then	
+	if not self.wndAddQueueDropdown then	
 		-- move buttons out of the way
 		wndRightBottomPreview:FindChild("RightBottomCraftBtn"):SetAnchorOffsets(-218, 13, -33, 61)
 		wndRightBottomPreview:FindChild("RightBottomSimpleCraftBtn"):SetAnchorOffsets(-218, 13, -33, 61)
 		
 		-- add our dropdown arrow
-		wndAddQueueDropdown = Apollo.LoadForm(self.xmlDoc, "AddQueueDropdown", wndRightBottomPreview, self)	
-		GeminiLocale:TranslateWindow(self.localization, wndAddQueueDropdown)			
-		self.wndDropdownRepeats = wndAddQueueDropdown:GetChildren()[1]
-		wndAddQueueDropdown:AttachWindow(self.wndDropdownRepeats)			
+		self.wndAddQueueDropdown = Apollo.LoadForm(self.xmlDoc, "AddQueueDropdown", wndRightBottomPreview, self)	
+		GeminiLocale:TranslateWindow(self.localization, self.wndAddQueueDropdown)			
+		self.wndDropdownRepeats = self.wndAddQueueDropdown:GetChildren()[1]
+		self.wndAddQueueDropdown:AttachWindow(self.wndDropdownRepeats)			
 	end
 	
 	local wndSchematicIcon = luaCaller.wndMain:FindChild("SchematicIcon")
@@ -349,11 +404,45 @@ function Hephaestus:DrawSchematic(luaCaller, tSchematic)
 
 	repeatContainer:ArrangeChildrenVert()
 	repeatParent:ArrangeChildrenVert()
+	
+	-- TODO: add 'blueprints' for circuit crafts
+	self.wndAddQueueDropdown:Enable(tSchematicInfo.bIsAutoCraft or ktAllowedTradeskillsNonAutocraft[tSchematicInfo.eTradeskillId] or false)
 end
 
 ------------------------------------------------------------
 -- Hephaestus Event-Handlers
 ------------------------------------------------------------
+
+function Hephaestus:OnUpdateQueueBlockers()
+	if not self.wndBlockersContainer then
+		return
+	end
+
+
+	
+	for idx, wndBlocker in ipairs(self.wndBlockersContainer:GetChildren()) do
+		local eKey = wndBlocker:GetData()
+		local bStatus = GetBlockerStatus(self, eKey)
+		local strTooltip = self.localization[string.format(kstrBlockerLocalizationKeyFormat, ktCraftBlockers[eKey])]
+				
+		if bStatus == nil then
+			wndBlocker:FindChild("Status"):SetSprite(nil)
+			if strTooltip then
+				wndBlocker:SetTooltip(string.format(strTooltip, Apollo.GetString("CRB_Undecided")))
+			end					
+		elseif bStatus then
+			wndBlocker:FindChild("Status"):SetSprite(kstrSpriteBlockerPass)				
+			if strTooltip then
+				wndBlocker:SetTooltip(string.format(strTooltip, Apollo.GetString("CRB_Yes")))
+			end					
+		else
+			wndBlocker:FindChild("Status"):SetSprite(kstrSpriteBlockerFail)						
+			if strTooltip then
+				wndBlocker:SetTooltip(string.format(strTooltip, Apollo.GetString("CRB_No")))
+			end					
+		end
+	end
+end
 
 function Hephaestus:RefreshQueueHeader()
 	if not self.wndQueue then	
@@ -383,6 +472,7 @@ function Hephaestus:RefreshQueueHeader()
 		btnClear:Enable(nCount > 0)		
 	end
 	
+	self:OnUpdateQueueBlockers()
 end
 
 function Hephaestus:RecreateQueue()	
@@ -438,6 +528,7 @@ function Hephaestus:AddQueueItem(item)
 end
 
 function Hephaestus:RefreshQueueItemMoveButtons(wndQueueItem, bForwardEnable, bBackwardEnable)
+	glog:debug("RefreshQueueItemMoveButtons(%s, %s)", tostring(bForwardEnable), tostring(bBackwardEnable))
 	local btnUp = wndQueueItem:FindChild("MoveUpButton")
 	local btnDown = wndQueueItem:FindChild("MoveDownButton")
 
@@ -478,7 +569,7 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	local tSchematicInfo = item:GetSchematicInfo()
 
 	local nAmount = item:GetAmount()		
-	local bCurrentlyRunning = queue:IsRunning() and queue:Peek() == item
+	local bCurrentlyRunning = queue:IsRunning() and queue:Peek() == item or false
 	local nMaxCraftable = item:GetMaxCraftable()
 	local sCount
 	if nMaxCraftable < knMaxCutoff then
@@ -507,9 +598,9 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	spinnerAmount:SetValue(nAmount)
 			
 	local bEnableUp = index and (index > 1) and (index > 2 or not bCurrentlyRunning)
-	local bEnableDown = index and (index > 1) and (index > 2 or not bCurrentlyRunning)
+	local bEnableDown = index and (index < queue:GetCount()) and (index > 1 or not bCurrentlyRunning)
 			
-	self:RefreshQueueItemMoveButtons(wndItem, nEnableUp, bEnableDown)
+	self:RefreshQueueItemMoveButtons(wndItem, bEnableUp, bEnableDown)
 	
 	btnRemove:Enable(not bCurrentlyRunning)
 	
