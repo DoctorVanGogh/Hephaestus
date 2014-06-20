@@ -157,6 +157,10 @@ function Hephaestus:OnDocumentReady()
 	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnCollectionChanged, "CollectionChanged")
 	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnPropertyChanged, "PropertyChanged")
 
+	if self.db.char.currentQueue  then
+		tCraftQueue:LoadFrom(self.db.char.currentQueue)	
+	end
+	
 	self.wndQueue:SetData(tCraftQueue)		
 	
 	self.wndBlockersContainer = self.wndQueue:FindChild("BlockersContainer")
@@ -259,14 +263,6 @@ end
 
 function Hephaestus:DatabaseShutdown(db)		
 	self.db.char.currentQueue = self.wndQueue:GetData():Serialize()
-end
-
-function Hephaestus:DatabaseStartup(db)
-	glog:debug("DatabaseStartup")
-
-	if db.char.currentQueue and self.wndQueue and self.wndQueue:GetData() then
-		self.wndQueue:GetData():LoadFrom(db.char.currentQueue)	
-	end
 end
 
 ------------------------------------------------------------
