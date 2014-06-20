@@ -34,28 +34,18 @@ end
 
 function CraftUtil:CanCraft()
 	local player = GameLib.GetPlayerUnit()
-	if player == nil then
-		glog:warn("Cannot get player unit - cannot start")
-		return false
-	end
+		
+	local bCanCraft, bAtCraftingStation, bNotMounted, bNotBusy 
 	
-	if not CraftingLib.IsAtCraftingStation() then
-		glog:warn("Not at crafting station")
-		return false
-	end
-	
-	if player:IsMounted() then
-		glog:info("Player mounted - can't start")
-		-- TODO auto dismount?
-		return false
-	end
-	
-	if player:IsCasting() then
-		glog:info("Player is casting - cannot start")
-		return false
-	end
-	
-	return true
+	if player ~= nil then
+		bAtCraftingStation = CraftingLib.IsAtCraftingStation()
+		bNotMounted = not player:IsMounted()
+		bNotBusy = not player:IsCasting() 		-- what about jumping, trading?		
+		
+		return bAtCraftingStation and bNotMounted and bNotBusy, bAtCraftingStation, bNotMounted, bNotBusy				
+	else
+		return false		
+	end	
 end
 
 function CraftUtil:GetMaxCraftableForSchematic(tSchematicInfo)
@@ -76,7 +66,7 @@ function CraftUtil:GetMaxCraftableForSchematic(tSchematicInfo)
 end
 
 --[[
-	Calculated the maximum number of an item we could fir inside the palyers inventory
+	Calculated the maximum number of an item we could fit inside the palyers inventory
 	Checks: empty slots, partial stacks, partial supply sachel stacks
 ]]
 function CraftUtil:GetInventoryCountForItem(tItem)
