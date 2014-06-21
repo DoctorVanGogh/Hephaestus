@@ -85,7 +85,7 @@ function CraftUtil:GetInventoryCountForItem(tItem)
 
 	-- check for partial stacks in inventory
 	for idx, tCurrItem in ipairs(unitPlayer:GetInventoryItems()) do	
-		if tCurrItem.itemInBag == tItem then
+		if tCurrItem.itemInBag:GetItemId() == tItem:GetItemId() then
 			local nStackSize = tCurrItem.itemInBag:GetStackCount() or 0
 			nCount = nCount + (nMaxStackSize - nStackSize)
 		end	
@@ -94,7 +94,7 @@ function CraftUtil:GetInventoryCountForItem(tItem)
 	-- check for partial stacks in supply satchel
 	for strCategory, arItems in pairs(unitPlayer:GetSupplySatchelItems(0)) do
 		for idx, tCurrItem in ipairs(arItems) do
-			if tCurrItem.itemMaterial == tItem then				
+			if tCurrItem.itemMaterial:GetItemId() == tItem:GetItemId() then				
 				nCount = nCount + (knSupplySatchelStackSize - tCurrItem.nCount)					
 				break
 			end

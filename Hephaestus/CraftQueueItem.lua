@@ -32,7 +32,7 @@ function CraftQueueItem:OnLoad()
 	-- import GeminiLogging
 	local GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
 	glog = GeminiLogging:GetLogger({
-		level = GeminiLogging.INFO,
+		level = GeminiLogging.DEBUG,
 		pattern = "%d [%c:%n] %l - %m",
 		appender = "GeminiConsole"
 	})	
@@ -178,13 +178,21 @@ function CraftQueueItem:TryCraft()
 	local nRoomForOutputItems = 0
 	local unitPlayer = GameLib.GetPlayerUnit()
 	local nCraftCount = math.max(tSchematicInfo.nCreateCount or 1, tSchematicInfo.nCritCount or 1) -- calculate defensively, in case there are ever crit crafts with more output
-		
+	
+	-- *some* recipes use the same material for input as they produce - correctly reduce the output amount by this
+	local nOutputDifference = nCraftCount
+	for idx, tMaterial in ipairs(tSchematicInfo.tMaterials) do
+		if tItemOutput:GetItemId() == tMaterial.itemMaterial:GetItemId() then
+			nOutputDifference = nOutputDifference - tMaterial.nAmount
+			break
+		end
+	end		
 	-- make sure we have enough space in inventory
-	local nMaxCraftCountsStashableInInventory = math.floor(CraftUtil:GetInventoryCountForItem(tItemOutput) / nCraftCount)
+	local nMaxCraftCountsStashableInInventory = math.floor(CraftUtil:GetInventoryCountForItem(tItemOutput) / nOutputDifference)
 	
 	local nMaxCraftable = self:GetMaxCraftable() or 0
 
-	local nCount = math.min(nAmount, nCraftAtOnceMax, nMaxCraftable, nMaxCraftCountsStashableInInventory)
+	local nCount = math.min(nAmount, nCraftAtOnceMax, nMaxCraftable, nMaxCraftCountsStashableInInventory)	
 	
 	glog:debug("Amount: %.f, MaxAtOnce: %.f, MaxMaterialsAvailable: %.f, MaxCraftsStashable: %.f => Final Count: %.f", nAmount, nCraftAtOnceMax, nMaxCraftable, nMaxCraftCountsStashableInInventory, nCount)	
 	if not nCount then
