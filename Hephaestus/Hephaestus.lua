@@ -67,6 +67,16 @@ local ktAllowedTradeskillsNonAutocraft = {
 	[CraftingLib.CodeEnumTradeskill.Augmentor] = true	
 }
 
+local karPowerCoreTierToString =
+{
+	[CraftingLib.CodeEnumTradeskillTier.Novice] 	= Apollo.GetString("CRB_Tradeskill_Quartz"),
+	[CraftingLib.CodeEnumTradeskillTier.Apprentice] = Apollo.GetString("CRB_Tradeskill_Sapphire"),
+	[CraftingLib.CodeEnumTradeskillTier.Journeyman] = Apollo.GetString("CRB_Tradeskill_Diamond"),
+	[CraftingLib.CodeEnumTradeskillTier.Artisan] 	= Apollo.GetString("CRB_Tradeskill_Chrysalus"),
+	[CraftingLib.CodeEnumTradeskillTier.Expert] 	= Apollo.GetString("CRB_Tradeskill_Starshard"),
+	[CraftingLib.CodeEnumTradeskillTier.Master] 	= Apollo.GetString("CRB_Tradeskill_Hybrid"),
+}
+
 local function GetBlockerStatus(self, eKey)
 	if not self.wndQueue then
 		return nil
