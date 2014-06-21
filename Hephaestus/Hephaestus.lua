@@ -141,7 +141,6 @@ function Hephaestus:OnInitialize()
 	}	
 	self.db = Apollo.GetPackage("Gemini:DB-1.0").tPackage:New(self, dbDefaults)
 	self.db.RegisterCallback(self, "OnDatabaseShutdown", "DatabaseShutdown")
-	self.db.RegisterCallback(self, "OnDatabaseStartup", "DatabaseStartup")	
 
 end
 
@@ -451,7 +450,7 @@ function Hephaestus:OnUpdateQueueBlockers()
 end
 
 function Hephaestus:RefreshQueueHeader()
-	if not self.wndQueue then	
+	if not self.wndQueue or not self.wndQueue:GetData() then	
 		return
 	end	
 	
