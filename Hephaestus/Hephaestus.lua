@@ -251,7 +251,7 @@ function Hephaestus:OnInterfaceMenuListHasLoaded()
 end
 
 function Hephaestus:UpdateInterfaceMenuAlerts()
-	local nCount = self.wndQueue and self.wndQueue:GetData() and self.wndQueue:GetData():GetCount()
+	local nCount = (self.wndQueue and self.wndQueue:GetData() and self.wndQueue:GetData():GetCount()) or 0
 
 	Event_FireGenericEvent("InterfaceMenuList_AlertAddOn", kstrAddonName, {nCount > 0, nil, nCount})
 end
