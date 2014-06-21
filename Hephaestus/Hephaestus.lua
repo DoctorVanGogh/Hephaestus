@@ -162,16 +162,15 @@ function Hephaestus:OnDocumentReady()
 	self.wndQueue:Show(false, true)
 		
 	local tCraftQueue = CraftQueue{}
+	self.wndQueue:SetData(tCraftQueue)		
 		
 	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnCollectionChanged, "CollectionChanged")
 	tCraftQueue.RegisterCallback(self, CraftQueue.EventOnPropertyChanged, "PropertyChanged")
-
+	
 	if self.db.char.currentQueue  then
 		tCraftQueue:LoadFrom(self.db.char.currentQueue)	
-	end
-	
-	self.wndQueue:SetData(tCraftQueue)		
-	
+	end	
+
 	self.wndBlockersContainer = self.wndQueue:FindChild("BlockersContainer")
 	for key, strName in pairs(ktCraftBlockers) do
 		local wndBlocker = Apollo.LoadForm(self.xmlDoc, "StatusBlocker", self.wndBlockersContainer, self)
@@ -481,7 +480,7 @@ function Hephaestus:RefreshQueueHeader()
 end
 
 function Hephaestus:RecreateQueue()	
-	if not self.wndQueue then	
+	if not self.wndQueue or not self.wndQueue:GetData() then	
 		return
 	end	
 	
@@ -505,7 +504,7 @@ function Hephaestus:RecreateQueue()
 end
 
 function Hephaestus:RefreshQueue()
-	if not self.wndQueue then	
+	if not self.wndQueue or not self.wndQueue:GetData() then	
 		return
 	end	
 	local queue = self.wndQueue:GetData()	
