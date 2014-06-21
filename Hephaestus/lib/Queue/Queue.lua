@@ -78,7 +78,7 @@ function Queue:Forward(oItem)
 
 	if idx and (idx > 1) then
 		local oSwap = self.items[idx - 1]
-		self.items[idx - 1] = item
+		self.items[idx - 1] = oItem
 		self.items[idx] = oSwap
 		return idx - 1
 	else
@@ -91,7 +91,7 @@ function Queue:Backward(oItem)
 
 	if idx and (idx < #self.items) then
 		local oSwap = self.items[idx + 1]
-		self.items[idx + 1] = item
+		self.items[idx + 1] = oItem
 		self.items[idx] = oSwap
 		return idx + 1
 	else

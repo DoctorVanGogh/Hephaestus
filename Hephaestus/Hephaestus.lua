@@ -221,9 +221,11 @@ function Hephaestus:CollectionChanged(sEvent, dummy, strChangeType, tItems)
 		self:RecreateQueue()				-- TODO: remove this once precursor/successor updates work
 		self:UpdateInterfaceMenuAlerts()		
 	elseif strChangeType == CraftQueue.CollectionChanges.Refreshed then 
-		for idx, item in ipairs(tItems) do
-			self:RefreshQueueItem(item)
-		end	
+		--for idx, item in ipairs(tItems) do
+		--	self:RefreshQueueItem(item)
+		--end	
+		
+		self:RecreateQueue()				-- TODO: find a way only to swap the 2 affected windows - currently cant use refreshitem since it just looks up the old containers and refreshes them :(
 	end	
 	glog:debug("CollectionChanged DONE")
 end
@@ -672,6 +674,7 @@ function Hephaestus:OnQueueClear(wndHandler, wndControl)
 end
 
 function Hephaestus:OnQueueStart(wndHandler, wndControl)
+	glog:debug("OnQueueStart")
 	if wndHandler ~= wndControl then
 		return
 	end

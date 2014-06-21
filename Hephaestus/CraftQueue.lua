@@ -157,6 +157,8 @@ function CraftQueue:IsRunning()
 end
 
 function CraftQueue:Start()
+	glog:debug("CraftQueue:Start")
+
 	if self.state == ktQueueStates.Running then
 		glog:warn("Already running")
 		return
@@ -167,9 +169,9 @@ function CraftQueue:Start()
 		return
 	end
 	
-	if not CraftUtil:CanCraft() then
-		return
-	end
+	--if not CraftUtil:CanCraft() then
+	--	return
+	--end
 	
 	-- make sure enough materials are still present
 	self.state = ktQueueStates.Running

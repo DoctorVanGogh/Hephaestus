@@ -126,12 +126,23 @@ function CraftQueueItem:TryCraft()
 	glog:debug("CraftQueueItem:TryCraft")
 
 	if self:GetMaxCraftable() == 0 then
-		glog:warn("Not enough materials - stopping")
+		glog:warn(Apollo.GetString("GenericError_Craft_MissingMaterials"))
 		self:GetQueue():Stop()
 		return
 	end
-	
-	if not CraftUtil:CanCraft() then
+		
+	local bCanCraft, bAtCraftingStation, bNotMounted, bNotBusy = CraftUtil:CanCraft()
+	glog:debug("CanCraft: %s (%s, %s, %s)", tostring(bCanCraft), tostring(bAtCraftingStation), tostring(bNotMounted), tostring(bNotBusy))
+	if not bCanCraft then
+		if not bAtCraftingStation then
+			glog:warn(Apollo.GetString("CBCrafting_NoStation"))
+		end
+		if not bNotMounted then
+			glog:warn("Player mounted")
+		end
+		if not bNotBusy then
+			glog:warn(Apollo.GetString("GenericError_PlayerBusy"))
+		end			
 		self:GetQueue():Stop()
 		return
 	end	
@@ -178,7 +189,22 @@ function CraftQueueItem:TryCraft()
 	glog:debug("Amount: %.f, MaxAtOnce: %.f, MaxMaterialsAvailable: %.f, MaxCraftsStashable: %.f => Final Count: %.f", nAmount, nCraftAtOnceMax, nMaxCraftable, nMaxCraftCountsStashableInInventory, nCount)	
 	if not nCount then
 		return
+	else
+		if nCount == 0 then
+			if nMaxCraftCountsStashableInInventory == 0 then
+				glog:warn(Apollo.GetString("ItemSetInventory_InventoryFull"))
+				self:GetQueue():Stop()
+				return
+			elseif nMaxCraftable == 0 then
+				glog:warn(Apollo.GetString("GenericError_Craft_MissingMaterials"))
+				self:GetQueue():Stop()
+				return
+			
+			end
+		end	
 	end
+	
+	
 	
 	self:SetCurrentCraftAmount(nCount)	
 	
