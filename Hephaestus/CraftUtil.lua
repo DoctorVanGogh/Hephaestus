@@ -73,6 +73,8 @@ function CraftUtil:GetInventoryCountForItem(tItem)
 	-- TODO: make this method use 'dynamic inventory state' methods
 	local unitPlayer = GameLib.GetPlayerUnit()
 
+	if not unitPlayer then return nil end
+	
 	local nCount = 0
 	local nMaxStackSize = tItem:GetMaxStackCount() or 1
 	
