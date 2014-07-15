@@ -106,7 +106,7 @@ end
 
 local function GetLogger(tGeminiLogging)
 	return tGeminiLogging:GetLogger({
-			level = tGeminiLogging.DEBUG,
+			level = tGeminiLogging.INFO,
 			pattern = "%d [%c:%n] %l - %m",
 			appender = "GeminiConsole"
 		})	
