@@ -1,5 +1,4 @@
-<Addon Name="Hephaestus" APIVersion="8" Author="DoctorVanGogh" Version="2" Description="Crafting Enhancements: Multi item crafting for simple schematics">
-    <Script Name="lib/AddonRegistry/AddonRegistry.lua" />
+<Addon Name="Hephaestus" APIVersion="9" Author="DoctorVanGogh" Version="2" Description="Crafting Enhancements: Crafting queue & multi item crafting">
     <Script Name="lib/GeminiLogging/inspect.lua" />
     <Script Name="lib/GeminiLogging/GeminiLogging.lua" />
 	<Script Name="lib/GeminiLocale/GeminiLocale.lua" />
@@ -14,7 +13,9 @@
     <Script Name="lib/Loop/multiple.lua"/>
     <Script Name="lib/Loop/collection/OrderedSet.lua"/>
     <Script Name="lib/Loop/cached.lua"/>
-    <Script Name="lib/Queue/Queue.lua"/>
+    <Script Name="lib/Queue/Queue.lua"/>	
+	<Script Name="lib/AddonRegistry/AddonRegistry.lua" />
+	<Script Name="lib/LibApolloFixes/LibApolloFixes-1.0.lua" />
     <Script Name="localization/enUS.lua"/>
     <Script Name="localization/deDE.lua"/>
     <Script Name="localization/frFR.lua"/>

@@ -7,12 +7,6 @@
 [submodule "Hephaestus/lib/GeminiLogging"]
 	path = Hephaestus/lib/GeminiLogging
 	url = https://github.com/wildstarnasa/GeminiLogging.git
-[submodule "Hephaestus/lib/AddonRegistry"]
-	path = Hephaestus/lib/AddonRegistry
-	url = git@github.com:DoctorVanGogh/AddonRegistry.git
-[submodule "CRBTradeskills"]
-	path = CRBTradeskills
-	url = git@github.com:DoctorVanGogh/CRBTradeskills.git
 [submodule "Hephaestus/lib/Loop"]
 	path = Hephaestus/lib/Loop
 	url = git@github.com:DoctorVanGogh/Loop.git
@@ -26,3 +20,9 @@
 [submodule "Hephaestus/lib/CallbackHandler"]
 	path = Hephaestus/lib/CallbackHandler
 	url = https://github.com/wildstarnasa/CallbackHandler.git
+[submodule "Hephaestus/lib/LibApolloFixes"]
+	path = Hephaestus/lib/LibApolloFixes
+	url = https://github.com/wildstarnasa/LibApolloFixes.git
+[submodule "Hephaestus/lib/AddonRegistry"]
+	path = Hephaestus/lib/AddonRegistry
+	url = git@github.com:DoctorVanGogh/AddonRegistry.git

@@ -8,7 +8,12 @@ require "CraftingLib"
 require "Tooltip"
 
 local kstrAddonName = "Hephaestus"
+local kstrAddonTradeskills = "Tradeskills"
+local kstrAddonTradeskillSchematics = "TradeskillSchematics"
 
+local tTradeskillReplacementAddons = {
+    ["CRBTradeskills"] = true
+}
 
 local Hephaestus = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
 																	kstrAddonName, 
@@ -18,14 +23,14 @@ local Hephaestus = Apollo.GetPackage("Gemini:Addon-1.1").tPackage:NewAddon(
 																		"Gemini:Logging-1.2",
 																		"Gemini:Locale-1.0",
 																		"Gemini:DB-1.0",
-																		"CRBTradeskills",
-																		"DoctorVanGogh:Lib:AddonRegistry",
+																		"Lib:ApolloFixes-1.0",	
+																		"DoctorVanGogh:Lib:AddonRegistry",		-- two stones, one bird - still need this if CRBTradeskills is present & loaded :(
 																		"DoctorVanGogh:Hephaestus:CraftUtil",																		
 																		"DoctorVanGogh:Hephaestus:CraftQueue",																		
+																		kstrAddonTradeskills
 																	},
 																	"Gemini:Hook-1.0"
 																)
-local glog
 local inspect
 local CraftUtil
 local CraftQueue 
@@ -99,6 +104,14 @@ local function GetBlockerStatus(self, eKey)
 end 
 
 
+local function GetLogger(tGeminiLogging)
+	return tGeminiLogging:GetLogger({
+			level = tGeminiLogging.DEBUG,
+			pattern = "%d [%c:%n] %l - %m",
+			appender = "GeminiConsole"
+		})	
+end
+
 -- Replaces Hephaestus:OnLoad
 function Hephaestus:OnInitialize()
 	-- import inspect
@@ -106,20 +119,20 @@ function Hephaestus:OnInitialize()
 
 	-- setup logger
 	local GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
-	glog = GeminiLogging:GetLogger({
-		level = GeminiLogging.INFO,
-		pattern = "%d [%c:%n] %l - %m",
-		appender = "GeminiConsole"
-	})	
-	self.log = glog	
+	self.log = self.log or GetLogger(GeminiLogging)
 
 	-- get localization
 	GeminiLocale = Apollo.GetPackage("Gemini:Locale-1.0").tPackage
 	self.localization = GeminiLocale:GetLocale(kstrAddonName)
 	
 	-- get tradeskill schematics reference
-	local AddonRegistry = Apollo.GetPackage("DoctorVanGogh:Lib:AddonRegistry").tPackage
-	self.tTradeskillSchematics = AddonRegistry:GetAddon("Tradeskills", "TradeskillSchematics")
+	self.tTradeskillSchematics = self.tTradeskillSchematics or Apollo.GetAddon(kstrAddonTradeskillSchematics)		-- HACK: may already have been set in OnDependencyError !!!
+	if self.tTradeskillSchematics then
+		self:SetupTradeskillHooks(self.tTradeskillSchematics)
+	else
+		Apollo.RegisterEventHandler("ObscuredAddonVisible", "OnObscuredAddonVisible", self)
+	end
+	
 	
 	-- import CraftUtil
 	CraftUtil = Apollo.GetPackage("DoctorVanGogh:Hephaestus:CraftUtil").tPackage
@@ -180,15 +193,13 @@ function Hephaestus:OnDocumentReady()
 	
 	self.wndBlockersContainer:ArrangeChildrenHorz()
 
-	glog:debug("OnDocumentReady - db.char.currentQueue=%s", inspect(self.db.char.currentQueue))
+	self.log:debug("OnDocumentReady - db.char.currentQueue=%s", inspect(self.db.char.currentQueue))
 	if self.db.char.currentQueue then
 		tCraftQueue:LoadFrom(self.db.char.currentQueue)
 	end	
 	Apollo.RegisterSlashCommand("cq", "OnCraftQueue", self)
 	Apollo.RegisterEventHandler("ToggleHephaestusCraftQueue", "ToggleQueueWindow", self)
 	
-	self:PostHook(self.tTradeskillSchematics, "Initialize")
-	self:PostHook(self.tTradeskillSchematics, "DrawSchematic")
 		
 	if self.bWindowManagementReady then
 		Event_FireGenericEvent("WindowManagementAdd", {wnd = self.wndQueue, strName = "Hephaestus Craft Queue"})	
@@ -199,8 +210,78 @@ function Hephaestus:OnDocumentReady()
 	Apollo.CreateTimer("Hephaestus_QueueBlockerUpdates", 1, true)	
 end
 
+
+function Hephaestus:SetupTradeskillHooks(tTarget)
+	self.log:debug("SetupTradeskillHooks - %s", tostring(tTarget))
+
+	if not tTarget then return end
+	
+	self:PostHook(tTarget, "Initialize")
+	self:PostHook(tTarget, "DrawSchematic")	
+end
+
+function Hephaestus:OnObscuredAddonVisible(strAddonName)
+	self.log:debug("OnObscuredAddonVisible - %s", tostring(strAddonName))
+
+	if strAddonName == kstrAddonTradeskillSchematics then
+		self.tTradeskillSchematics = Apollo.GetAddon(kstrAddonTradeskillSchematics)
+		self:SetupTradeskillHooks(self.tTradeskillSchematics)
+		
+		--[[
+			HACK:
+			Perform one time initialization, since OnObscuredAddonVisible is triggered by a call to Apollo.LoadForm 
+			from TradeskillSchematics:Initialize, which we want to have post hooked - alas this initial call can never be hooked
+		--]]		
+		Apollo.RegisterEventHandler("VarChange_FrameCount", "InitDelayedSchematicsHooks", self)
+		
+		Apollo.RemoveEventHandler("ObscuredAddonVisible", self)
+	end
+end
+
+function Hephaestus:InitDelayedSchematicsHooks()
+	Apollo.RemoveEventHandler("VarChange_FrameCount", self)
+	self:Initialize(self.tTradeskillSchematics)		-- method ignores any param except first anyway
+end
+
+
+-- allow replacement of Tradeskills with CRBTradeskills
+function Hephaestus:OnDependencyError(strDep, strError)
+	
+	-- HACK need to grab our own log copy here, since OnLoad has not yet executed...
+	local GeminiLogging = Apollo.GetPackage("Gemini:Logging-1.2").tPackage
+	local log = GetLogger(GeminiLogging)
+	
+	log:warn("DependencyError: '%s' - '%s'", tostring(strDep), tostring(strError))
+	self.log = log
+	
+    if strDep == kstrAddonTradeskills then	
+        local tReplacements = Apollo.GetReplacement(strDep)
+		if #tReplacements == 0 then
+			return false
+		end
+		
+		local strAcceptableReplacement = nil
+		for idx, strReplacement in ipairs(tReplacements) do
+			if tTradeskillReplacementAddons[strReplacement] then
+				strAcceptableReplacement = strReplacement
+				break;
+			end
+		end
+		if not strAcceptableReplacement then
+			return false
+		end	
+
+		local AddonRegistry = Apollo.GetPackage("DoctorVanGogh:Lib:AddonRegistry").tPackage
+		
+        self.tTradeskillSchematics = AddonRegistry:GetAddon("Tradeskills", "TradeskillSchematics")
+
+        return true
+    end
+    return false
+end
+
 function Hephaestus:CollectionChanged(sEvent, dummy, strChangeType, tItems)
-	glog:debug("CollectionChanged(%s, %.f items)", strChangeType, tItems and #tItems or 0)
+	self.log:debug("CollectionChanged(%s, %.f items)", strChangeType, tItems and #tItems or 0)
 	if strChangeType == CraftQueue.CollectionChanges.Reset then 
 		self:RecreateQueue()	
 		self:UpdateInterfaceMenuAlerts()
@@ -227,11 +308,11 @@ function Hephaestus:CollectionChanged(sEvent, dummy, strChangeType, tItems)
 		
 		self:RecreateQueue()				-- TODO: find a way only to swap the 2 affected windows - currently cant use refreshitem since it just looks up the old containers and refreshes them :(
 	end	
-	glog:debug("CollectionChanged DONE")
+	self.log:debug("CollectionChanged DONE")
 end
 
 function Hephaestus:PropertyChanged(sEvent, dummy, strProperty)
-	glog:debug("PropertyChanged(%s, nil, %s)",sEvent, strProperty)
+	self.log:debug("PropertyChanged(%s, nil, %s)",sEvent, strProperty)
 	if strProperty == CraftQueue.PropertyIsRunning then
 		self:IsRunningChanged()
 	end
@@ -523,7 +604,7 @@ function Hephaestus:RefreshQueue()
 end
 
 function Hephaestus:AddQueueItem(item)
-	glog:debug("Hephaestus:AddQueueItem(%s)", tostring(item))
+	self.log:debug("Hephaestus:AddQueueItem(%s)", tostring(item))
 	local queueContainer = self.wndQueue:FindChild("QueueContainer")	
 	
 	local wndItem = Apollo.LoadForm(self.xmlDoc, "QueueItem", queueContainer , self)
@@ -534,7 +615,7 @@ function Hephaestus:AddQueueItem(item)
 end
 
 function Hephaestus:RefreshQueueItemMoveButtons(wndQueueItem, bForwardEnable, bBackwardEnable)
-	glog:debug("RefreshQueueItemMoveButtons(%s, %s)", tostring(bForwardEnable), tostring(bBackwardEnable))
+	self.log:debug("RefreshQueueItemMoveButtons(%s, %s)", tostring(bForwardEnable), tostring(bBackwardEnable))
 	local btnUp = wndQueueItem:FindChild("MoveUpButton")
 	local btnDown = wndQueueItem:FindChild("MoveDownButton")
 
@@ -544,10 +625,10 @@ end
 
 
 function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
-	glog:debug("Hephaestus:RefreshQueueItem(%s)", tostring(item))
+	self.log:debug("Hephaestus:RefreshQueueItem(%s)", tostring(item))
 	if not item then
-		glog:debug("nil item:")
-		glog:debug(debug.traceback())
+		self.log:debug("nil item:")
+		self.log:debug(debug.traceback())
 		return
 	end	
 	
@@ -564,7 +645,7 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 	end
 	
 	if not wndItem then
-		glog:error("wndItem is nil - %s", debug.traceback())
+		self.log:error("wndItem is nil - %s", debug.traceback())
 		return 
 	end
 	
@@ -614,7 +695,7 @@ function Hephaestus:RefreshQueueItem(item, wndItem, queue, index)
 end
 
 function Hephaestus:RemoveQueueItem(item, wndItem)
-	glog:debug("RemoveQueueItem %s", tostring(item))
+	self.log:debug("RemoveQueueItem %s", tostring(item))
 
 	local queueContainer = self.wndQueue:FindChild("QueueContainer")
 
@@ -628,7 +709,7 @@ function Hephaestus:RemoveQueueItem(item, wndItem)
 	end
 	
 	if not wndItem then
-		glog:error("wndItem is nil")
+		self.log:error("wndItem is nil")
 		return 
 	end
 
@@ -674,7 +755,7 @@ function Hephaestus:OnQueueClear(wndHandler, wndControl)
 end
 
 function Hephaestus:OnQueueStart(wndHandler, wndControl)
-	glog:debug("OnQueueStart")
+	self.log:debug("OnQueueStart")
 	if wndHandler ~= wndControl then
 		return
 	end
@@ -701,17 +782,17 @@ function Hephaestus:OnQueueStop(wndHandler, wndControl)
 end
 
 function Hephaestus:IsRunningChanged()
-	glog:debug("IsRunningChanged")
+	self.log:debug("IsRunningChanged")
 	self:RefreshQueue()
 
 	local queue = self.wndQueue:GetData()
 	
 	-- add frame listener while crafting for castbar
 	if queue:IsRunning() then
-		glog:debug(" => Started")
+		self.log:debug(" => Started")
 		Apollo.RegisterEventHandler("VarChange_FrameCount", "OnFrame", self)		
 	else
-		glog:debug(" => Stopped")
+		self.log:debug(" => Stopped")
 		Apollo.RemoveEventHandler("VarChange_FrameCount", self)	
 		
 		self.wndQueue:FindChild("CastingFrame"):Show(false)	-- hide cast bar
